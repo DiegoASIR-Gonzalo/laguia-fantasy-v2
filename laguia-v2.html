@@ -93,12 +93,16 @@
 .daily-reward p{margin:0}
 .daily-reward .row-actions{flex-wrap:wrap}
 .report-head .link-btn,.reward-link{width:max-content;text-decoration:none}
-.trade-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:15px 0}
-.trade-meta strong{display:block;font-size:19px;margin-top:3px}
+.trade-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;margin:16px 0}
+.trade-meta div{padding:11px 13px;border:1px solid #333743;border-radius:9px;background:var(--panel2)}
+.trade-meta dt{color:#adb5c4;font-size:14px}
+.trade-meta dd{margin:4px 0 0;color:var(--text);font-size:clamp(17px,3.6vw,22px);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
 .trade-input{display:grid;gap:5px;margin:15px 0}
 .trade-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:15px}
 .market-listings .player-cell{min-width:120px}
-.market-op-cell{white-space:nowrap}
+.market-op-cell,.market-delta{white-space:nowrap}
+.market-delta{font-variant-numeric:tabular-nums}
+.market-listings .player-cell:hover strong,.market-listings .player-cell:focus-visible strong{color:#ff9ba7;text-decoration:underline}
 .market-op-cell .btn{margin-top:5px}
 @media(max-width:1050px){.report-kv{grid-template-columns:1fr}}
 @media(max-width:760px){
@@ -139,6 +143,30 @@
 .squad-stats-scroll,.rival-roster-scroll{scrollbar-width:thin}
 .rival-roster table{min-width:610px}
 .mobile-nav button{border:0}
+.chart-filters,.chart-filter-fields{display:flex;align-items:end;gap:8px;flex-wrap:wrap}
+.chart-filters{margin:9px 0 10px}
+.chart-filters label{display:grid;gap:3px;font-size:13px;color:#a6adbb;min-width:0}
+.chart-filters :is(select,input){font-size:14px;max-width:100%;padding:6px 8px}
+.chart-filter-note{margin:5px 0 0}
+.chart-filter-note:empty,.squad-value-message:empty{display:none}
+.squad-value-filters{margin:10px 18px}
+.pitch-data{display:grid;gap:2px;margin-top:3px;color:#f4f6fa;font-size:11px;line-height:1.2}
+.lineup-edit-note{padding:0 14px;margin:0 0 8px}
+[data-lineup-drag]{cursor:grab}
+[data-lineup-drag]:active{cursor:grabbing}
+.lineup-target{outline:1px dashed #8bf1c3;border-radius:6px}
+.lineup-over{outline:2px solid #8bf1c3;border-radius:6px;background:#5adea52e}
+.lineup-options{display:grid;gap:12px}
+.lineup-option summary{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lineup-summary{margin:10px 0}
+.lineup-summary div{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:5px 0}
+.lineup-summary dt{color:#a6adbb}
+.lineup-summary dd{margin:0}
+.lineup-option .btn{margin-top:8px}
+.pitch-data>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.squad-bench .squad-stats td,.squad-bench .squad-stats th{padding-left:10px;padding-right:10px}
+.squad-bench td [data-lineup-pick]{margin-top:5px}
+[data-lineup-pick][aria-pressed="true"]{border-color:#8bf1c3;color:#8bf1c3}
 @media(max-width:1050px){.chart-labels span:nth-child(even):not(:last-child){display:none}}
 @media(max-width:760px){
  .squad-stats .player-cell{width:145px}
@@ -163,7 +191,7 @@ function normalizePlayer(raw,teams=[],probabilities={},expectedWeek=null){
  const master=raw.playerMaster||raw.playerTeam?.playerMaster||raw.player?.playerMaster||raw.player||raw;
  const id=String(master.id??master.playerId??raw.playerId??'');
  const teamId=String(master.teamId??'');const team=teams.find(t=>String(t.id)===teamId);
- const weeks=collection(master.weekPoints).filter(w=>Number.isFinite(Number(w.points))).sort((a,b)=>a.weekNumber-b.weekNumber).map(w=>({week:Number(w.weekNumber),points:Number(w.points)}));
+ const weeks=collection(master.weekPoints).filter(w=>Number.isFinite(Number(w.points))).sort((a,b)=>a.weekNumber-b.weekNumber).map(w=>({week:Number(w.weekNumber),points:Number(w.points),date:w.matchDate??w.date}));
  const probability=probabilities[id];
  const p={id,name:master.nickname||master.name||'Jugador',fullName:master.name,sourceSlug:master.slug,position:Number(master.positionId)||Number(raw.positionId)||0,teamId,team:team?.name||master.team?.name||'Equipo',shortTeam:team?.shortName||'',badge:team?.badgeColor||'',image:master.image||master.images?.transparent?.['256x256']||'',points:Number(master.points)||0,average:Number(master.averagePoints)||0,value:Number(master.marketValue)||0,status:master.playerStatus||'unknown',weeks,prob:probability?.p??null,probWeek:probability?.w??null,rival:probability?.rival??null,home:probability?.home??null,raw,clause:Number(raw.buyoutClause??raw.releaseClause??raw.clause)||null,listing:raw.id,price:Number(raw.salePrice)||null};
  p.probabilityMismatch=expectedWeek!==null&&p.probWeek!==null&&Number(p.probWeek)!==Number(expectedWeek);
@@ -228,7 +256,7 @@ const icon=(name,cls='')=>`<svg class="icon ${cls}" aria-hidden="true" viewBox="
 const brand=()=>`<div class="brand"><span class="brand-symbol" aria-hidden="true">L<span>↗</span></span><div><div class="brand-word">LAGUÍA<span>.</span></div><div class="brand-sub">FANTASY INTELLIGENCE</div></div></div>`;
 function readLocal(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
 function saveLocal(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
-let S={screen:'auth',tab:'overview',auth:{authenticated:false},demo:false,loginStep:false,remember:true,leagues:[],league:null,players:[],teams:[],squadMetric:'form',reward:null,rivalRosters:new Map(),recentTrades:new Map(),probabilities:{},ffUpdated:null,dataAt:null,live:false,roster:[],standings:[],market:[],balance:null,teamId:null,week:BOOTSTRAP?.week||{},calendar:[],errors:[],formation:'auto',risk:'balanced',lineup:null,locked:[],search:'',position:'all',sort:'points',page:0,marketTab:'all',watch:readLocal('lg-v2-watch',[]),settings:readLocal('lg-v2-settings',{injuries:true,probabilities:true,deadline:true}),dismissed:readLocal('lg-v2-dismissed',[]),chat:[],budget:50e6,compareA:'',compareB:'',calendarWeek:null};
+let S={screen:'auth',tab:'overview',auth:{authenticated:false},demo:false,loginStep:false,remember:true,leagues:[],league:null,players:[],teams:[],squadMetric:'form',reward:null,rivalRosters:new Map(),recentTrades:new Map(),probabilities:{},ffUpdated:null,dataAt:null,live:false,roster:[],standings:[],market:[],balance:null,teamId:null,week:BOOTSTRAP?.week||{},calendar:[],errors:[],formation:'auto',risk:'balanced',lineup:null,locked:[],search:'',position:'all',sort:'points',page:0,marketTab:'all',marketSeller:'grouped',watch:readLocal('lg-v2-watch',[]),settings:readLocal('lg-v2-settings',{injuries:true,probabilities:true,deadline:true}),dismissed:readLocal('lg-v2-dismissed',[]),chat:[],budget:50e6,compareA:'',compareB:'',calendarWeek:null};
 const views={overview:['Resumen','Tu centro de mando'],squad:['Mi plantilla','Un once con ventaja'],market:['Mercado','Encuentra tu próximo acierto'],rivals:['Rivales','Conoce a tu competencia'],calendar:['Calendario','La jornada, bajo control'],coach:['Asistente','Tu segundo entrenador'],radar:['Radar inteligente','Ve un paso por delante'],alerts:['Alertas','Que no se te escape nada'],settings:['Ajustes','A tu manera']};
 let dataReady=null,toastTimer,focusBefore;
 async function api(path,options={}){const r=await fetch(path,{credentials:'same-origin',...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...options.headers}});const raw=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401&&S.auth.authenticated){closeOverlay();S.auth={authenticated:false};S.screen='auth';S.demo=false;S.roster=[];S.leagues=[];render()}throw Error(raw.error||'No se pudo cargar la información.')}return raw}
@@ -239,7 +267,7 @@ function cachedPublic(){if(!BOOTSTRAP)return;S.rawPlayers=BOOTSTRAP.players;S.te
 async function loadPublic(){const jobs=[data('/v1/competition/1/players'),data('/v3/teams-master'),api('/api/ff'),data('/v1/competition/1/week/current')];const r=await Promise.allSettled(jobs);const errors=[];if(r[0].status==='fulfilled')S.rawPlayers=r[0].value;else errors.push('Catálogo de jugadores');if(r[1].status==='fulfilled')S.teams=collection(r[1].value);else errors.push('Equipos');if(r[2].status==='fulfilled'){S.probabilities=r[2].value.players||{};S.ffUpdated=r[2].value.updatedAt}else errors.push('Titularidad');if(r[3].status==='fulfilled')S.week=r[3].value;else errors.push('Jornada');S.live=r[0].status==='fulfilled';if(S.live)S.dataAt=new Date().toISOString();S.errors=errors;normalizeAll();if(S.demo&&S.league)seedDemo();if(S.screen==='app')render();return errors}
 async function boot(){cachedPublic();dataReady=loadPublic();try{S.auth=await api('/api/auth');if(S.auth.authenticated){S.screen='leagues';render();await loadLeagues()}else render()}catch{render()} }
 function toast(message,error=false){clearTimeout(toastTimer);$('#toast-root').innerHTML=`<div class="toast ${error?'error':''}">${icon(error?'alert':'check')}<span>${e(message)}</span></div>`;toastTimer=setTimeout(()=>$('#toast-root').innerHTML='',4200)}
-function render(){const app=$('#app');if(S.screen==='auth')app.innerHTML=authView();else if(S.screen==='leagues')app.innerHTML=leaguesView();else app.innerHTML=shellView();updateCountdown();}
+function render(){const app=$('#app');if(S.screen==='auth')app.innerHTML=authView();else if(S.screen==='leagues')app.innerHTML=leaguesView();else app.innerHTML=shellView();updateCountdown();if(S.screen==='app'&&S.tab==='squad')paintLineupSelection();if(S.screen==='app'&&S.tab==='market')void loadMarketTrends();}
 function authView(){return `<main class="auth-layout"><section class="auth-story">${brand()}<div class="story-copy"><div class="eyebrow"><span class="dot"></span> EL FÚTBOL SE SIENTE. LA LIGA SE GANA.</div><h1>Tu intuición.<br>Con datos.<em>Tu ventaja.</em></h1><p>El talento está en tu equipo.<br>La diferencia, en tus decisiones.</p></div><div class="story-features"><span>${icon('shield')} Tu cuenta, protegida</span><span>${icon('chart')} Datos que importan</span><span>${icon('spark')} Decisiones inteligentes</span></div></section><section class="auth-main"><div class="auth-version">LA NUEVA FORMA DE JUGAR · V2.0</div><div class="auth-card"><div class="auth-mark">${icon('trophy')}</div><h2>${S.loginStep?'Un último paso.':'Aquí empieza tu próxima victoria.'}</h2><p class="auth-intro">${S.loginStep?'Completa el acceso oficial y conecta tus ligas.':'Conecta tu cuenta de LALIGA Fantasy.<br>Tus ligas, tu equipo y tu ventaja. Todo en un lugar.'}</p>${S.loginStep?loginFlow():`<button class="btn google full" data-action="login"><span class="google-mark" aria-hidden="true">G</span> Conectar con LALIGA Fantasy ${icon('external')}</button><label class="auth-remember"><input id="remember" type="checkbox" ${S.remember?'checked':''}><span>Recordarme durante 7 días<small>Renovación automática si LALIGA mantiene el permiso.</small></span></label><div class="auth-secure">${icon('lock')}<span>El acceso se realiza en la página oficial de LALIGA.<br>Tus contraseñas y tokens no se muestran en esta web.</span></div><div class="auth-note">${icon('info')} Primera conexión: recomendamos un ordenador. El acceso oficial usa una redirección de la app; te guiaremos para completarla.</div><div class="or">PRIMERO, ECHA UN VISTAZO</div><button class="btn subtle full" data-action="demo">Explorar la demo ${icon('arrow')}</button>`}</div><p class="auth-foot">Herramienta independiente. Sin afiliación oficial con LALIGA.<br>Datos de LALIGA Fantasy y FútbolFantasy.</p></section></main>`}
 function loginFlow(){return `<div class="login-flow"><div class="step"><b>1</b><span>En la pestaña oficial que se ha abierto, elige <strong>Google</strong> o tu método habitual y termina de identificarte.</span></div><div class="step"><b>2</b><span>En esa pestaña, abre <strong>F12 → Red / Network</strong>. Busca la solicitud <strong>authredirect://com.lfp.laligafantasy</strong> y copia su URL completa con <strong>code=</strong> y <strong>state=</strong>.</span></div><div class="step"><b>3</b><span>Pégala aquí. El código se canjea una sola vez en el servidor.</span></div><form id="login-form"><label class="screen-reader" for="redirect-input">URL de redirección de LALIGA</label><textarea id="redirect-input" name="redirect" required autocomplete="off" spellcheck="false" placeholder="authredirect://com.lfp.laligafantasy?code=…&state=…"></textarea><div id="login-error" role="alert"></div><button class="btn primary full" style="margin-top:12px" type="submit">Conectar mis ligas ${icon('arrow')}</button></form><button class="link-btn" data-action="restart-login">${icon('refresh')} Volver a abrir el acceso oficial</button><p class="hint">La autorización dura 15 minutos. Si no ves la solicitud, activa «Conservar registro» en Red y repite el acceso. En móvil, la app oficial puede interceptar la redirección.</p><button class="link-btn" data-action="back-auth">${icon('left')} Volver</button></div>`}
 async function completeLogin(form){const button=$('button[type=submit]',form),input=$('textarea',form);button.disabled=true;button.textContent='Verificando con LALIGA…';$('#login-error').innerHTML='';try{const auth=await api('/api/auth',{method:'POST',body:JSON.stringify({redirect:input.value.trim()})});input.value='';S.auth=auth;S.demo=false;S.screen='leagues';S.loginStep=false;render();await loadLeagues();toast(auth.renewable?'Cuenta conectada. Renovación automática activada.':'Cuenta conectada. LALIGA no ha entregado permiso de renovación.')}catch(error){$('#login-error').innerHTML=`<div class="error-inline" style="margin-top:10px">${e(error.message)}</div>`;button.disabled=false;button.innerHTML='Conectar mis ligas '+icon('arrow')}}
@@ -247,7 +275,9 @@ function startLogin(){const remembered=$('#remember')?.checked??S.remember;S.rem
 function demoLeagues(){return [{id:'demo-1',name:'La liga de los colegas',members:12,teamId:'demo-me',description:'Donde cada lunes se habla de fútbol.',rank:2},{id:'demo-2',name:'La oficina',members:8,teamId:'demo-me',description:'La rivalidad también se ficha.',rank:3}]}
 async function loadLeagues(){try{S.leagues=collection(await data(privateBase+'/leagues')).map(normalizeLeague);S.leaguesError=null;render()}catch(error){S.leaguesError=error.message;render()}}
 function leaguesView(){const leagues=S.demo?demoLeagues():S.leagues;return `<div class="lobby"><header class="lobby-header">${brand()}<div style="display:flex;gap:12px;align-items:center">${S.demo?'<span class="badge warn">MODO DEMO</span>':`<span class="badge good">${icon('shield')} Sesión conectada</span>`}<button class="btn subtle small" data-action="logout">${icon('logout')} ${S.demo?'Salir de demo':'Desconectar'}</button></div></header><main class="lobby-body"><div class="lobby-title"><div><div class="eyebrow red">BIENVENIDO A TU VENTAJA</div><h1>Tus ligas. Tu próximo reto.</h1><p>${S.demo?'Estos equipos son de ejemplo. Las estadísticas públicas se consultan en la API.':'Hola, '+e(S.auth.managerName||'mánager')+'. Elige una liga y entra en juego.'}</p></div><button class="icon-btn" data-action="refresh-leagues" aria-label="Actualizar ligas">${icon('refresh')}</button></div>${S.leaguesError?`<div class="error-inline">${e(S.leaguesError)} <button class="link-btn" data-action="refresh-leagues">Reintentar</button></div>`:''}<div class="league-grid">${leagues.map((l,i)=>`<button class="league-card" data-league="${e(l.id)}"><span class="arrow">${icon('external')}</span><div class="league-emblem">${icon(i?'shield':'trophy')}</div><h2>${e(l.name)}</h2><p>${S.demo?e(l.description):'LALIGA Fantasy'+(l.members?' · '+l.members+' mánagers':'')}</p><div class="league-card-footer"><span>${S.demo?`<strong>${l.rank}º</strong> de ${l.members} mánagers`:'Abrir mi centro de mando'}</span><span class="red">Entrar ${icon('arrow')}</span></div></button>`).join('')}</div>${!leagues.length&&!S.leaguesError?`<div class="panel"><div class="empty-state">${icon('trophy')}<h3>${S.auth.authenticated?'Todavía no aparecen ligas':'Cargando tus ligas'}</h3><p>Comprueba que tu cuenta tenga una liga activa en LALIGA Fantasy y actualiza la lista.</p><button class="btn" data-action="refresh-leagues">${icon('refresh')} Actualizar ligas</button></div></div>`:''}<div class="lobby-help">${icon('spark')}<div><strong>Una estrategia para cada liga.</strong><p>Tu asistente adapta las recomendaciones a tu plantilla, tu saldo y los jugadores disponibles.</p></div></div>${!S.demo?`<div class="model-note">${icon('lock')} Tu acceso está guardado hasta el ${new Date(S.auth.expiresAt).toLocaleDateString('es-ES',{timeZone:'Europe/Madrid',day:'numeric',month:'long'})}. ${S.auth.renewable?'El servidor renovará la autorización al usar la app.':'LALIGA puede pedirte identificarte antes porque no ha entregado un refresh token.'}</div>`:''}</main></div>`}
-function seedDemo(){const ids=['68','2755','67','121','74','2315','2530','2430','2534','3086','3090','2464','3104','3084','2771','302'];S.roster=ids.map(id=>S.players.find(p=>p.id===id)).filter(Boolean).map((p,i)=>({...p,ownerTeamId:'demo-me',ownerName:'Tu equipo',clause:Math.round(p.value*1.25),shielded:i===0}));S.balance=28.4e6;S.teamId='demo-me';S.budget=50e6;S.standings=[{id:'d1',name:'Los Galácticos',managerName:'Pablo M.',points:1082,weekPoints:82},{id:'demo-me',name:'Tu equipo',managerName:'Tú',points:1049,weekPoints:76},{id:'d3',name:'Los del VAR',managerName:'Carlos R.',points:1031,weekPoints:68},{id:'d4',name:'Tiki Taka FC',managerName:'Marta G.',points:1006,weekPoints:73},{id:'d5',name:'La última y nos vamos',managerName:'Javi S.',points:983,weekPoints:59},{id:'d6',name:'Balón de barrio',managerName:'Ana L.',points:972,weekPoints:67},{id:'d7',name:'Real Banquillo',managerName:'Dani P.',points:945,weekPoints:52},{id:'d8',name:'Sin presupuesto FC',managerName:'Lucía F.',points:931,weekPoints:63}];S.market=S.players.filter(p=>!ids.includes(p.id)&&p.average>3).sort((a,b)=>b.average-a.average).slice(0,60).map(p=>({...p,listing:'demo-'+p.id,listingType:'marketPlayerLeague',price:p.value}));S.lineup=optimize(S.roster,S.formation,S.risk,S.locked);}
+function seedDemo(){const ids=['68','2755','67','121','74','2315','2530','2430','2534','3086','3090','2464','3104','3084','2771','302'];S.roster=ids.map(id=>S.players.find(p=>p.id===id)).filter(Boolean).map((p,i)=>({...p,ownerTeamId:'demo-me',ownerName:'Tu equipo',clause:Math.round(p.value*1.25),shielded:i===0}));S.balance=28.4e6;S.teamId='demo-me';S.budget=50e6;S.standings=[{id:'d1',name:'Los Galácticos',managerName:'Pablo M.',points:1082,weekPoints:82},{id:'demo-me',name:'Tu equipo',managerName:'Tú',points:1049,weekPoints:76},{id:'d3',name:'Los del VAR',managerName:'Carlos R.',points:1031,weekPoints:68},{id:'d4',name:'Tiki Taka FC',managerName:'Marta G.',points:1006,weekPoints:73},{id:'d5',name:'La última y nos vamos',managerName:'Javi S.',points:983,weekPoints:59},{id:'d6',name:'Balón de barrio',managerName:'Ana L.',points:972,weekPoints:67},{id:'d7',name:'Real Banquillo',managerName:'Dani P.',points:945,weekPoints:52},{id:'d8',name:'Sin presupuesto FC',managerName:'Lucía F.',points:931,weekPoints:63}];S.market=S.players.filter(p=>!ids.includes(p.id)&&p.average>3).sort((a,b)=>b.average-a.average).slice(0,60).map(p=>({...p,listing:'demo-'+p.id,listingType:'marketPlayerLeague',price:p.value}));const prior=readLocal(demoLineupKey(),readLocal('lg-v2-demo-lineup',null));
+S.savedLineup=prior?lineupFromIds(prior.formation,prior.ids??[]):null;
+S.lineup=(S.lineupDirty&&S.lineup?lineupFromIds(S.lineup.formation,S.lineup.players.map(p=>p.id)):null)||S.savedLineup||optimize(S.roster,S.formation,S.risk,S.locked);}
 const officialApp = 'https://fantasylaliga.onelink.me/k6nG?af_dp=fantasy%3A%2F%2Fsplashactivity&pid=web-fantasy&af_force_deeplink=true';
 const numberOrNull = value => (typeof value !== 'string' && typeof value !== 'number') || value === ''
  ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -300,8 +330,7 @@ async function loadSquadStats() {
   if (S.league !== league || S.tab !== 'squad' || S.screen !== 'app') return;
   await Promise.all(slugs.slice(i, i + 4).map(loadFfTeam));
   if (S.league === league && S.roster === roster && S.tab === 'squad') {
-   const grid = $('#squad-metrics');
-   if (grid) grid.innerHTML = squadTable(squadPlayers());
+   refreshSquadMetrics();
   }
  }
 }
@@ -368,8 +397,8 @@ async function enterLeague(id) {
  const league = S.league;
  Object.assign(S, {
   tab: 'overview', screen: 'app', leagueLoading: true, errors: [], privateErrors: [], roster: [],
-  standings: [], market: [], lineup: null, formation: 'auto', locked: [], chat: [], balance: null,
-  teamId: null, reward: null, marketTab: 'league', page: 0, search: '', position: 'all',
+  standings: [], market: [], lineup: null, savedLineup:null, lineupDirty:false, lineupPick:null, lineupSaving:false, formation: 'auto', locked: [], chat: [], balance: null,
+  teamId: null, reward: null, marketTab: 'league', marketSeller:'grouped', page: 0, search: '', position: 'all',
   rivalRosters: new Map(), recentTrades: new Map(),
  });
  render();
@@ -420,9 +449,10 @@ async function loadPrivateLeague() {
  if (S.teamId) {
   const own = S.standings.map(standingInfo).find(team => team.id === S.teamId) ??
    {id: S.teamId, name: S.auth.managerName || 'Tu equipo'};
-  const [roster, money] = await Promise.allSettled([
+  const [roster, money, saved] = await Promise.allSettled([
    data(privateBase + '/leagues/' + id + '/teams/' + encodeURIComponent(S.teamId)),
    data(privateBase + '/teams/' + encodeURIComponent(S.teamId) + '/money'),
+   data(privateBase + '/teams/' + encodeURIComponent(S.teamId) + '/lineup'),
   ]);
   if (!current()) return;
   if (roster.status === 'fulfilled') S.roster = mergePrivate(roster.value, 'roster', own);
@@ -430,16 +460,21 @@ async function loadPrivateLeague() {
   S.balance = money.status === 'fulfilled'
    ? numberOrNull(field(money.value, ['teamMoney', 'money', 'balance', 'availableMoney'])) : null;
   if (S.balance === null) failures.push('No se pudo leer tu saldo.');
+  if (saved.status==='fulfilled') S.savedLineup=savedLineupFromApi(saved.value);
+  else if(S.savedLineup)S.savedLineup=lineupFromIds(S.savedLineup.formation,S.savedLineup.players.map(p=>p.id));
  } else {
   failures.push('No se ha podido identificar tu equipo en esta liga.');
  }
  S.locked = S.locked.filter(id => S.roster.some(p => p.id === id));
- S.lineup = optimize(S.roster, S.formation, S.risk, S.locked);
+ const draft=S.lineupDirty&&S.lineup?lineupFromIds(S.lineup.formation,S.lineup.players.map(p=>p.id)):null;
+ S.lineupDirty=!!draft;
+ S.lineup = draft || S.savedLineup || optimize(S.roster,S.formation,S.risk,S.locked);
+ if(S.savedLineup&&!draft)S.formation=S.savedLineup.formation;
  S.budget = S.balance ?? 0;
  S.privateErrors = failures;
  S.leagueLoading = false;
  render();
- if (S.tab === 'squad') void loadSquadStats();
+ if (S.tab === 'squad') {void loadSquadStats();void loadSquadMarketHistory()}
 }
 const nav=(key,name,ico,extra='')=>`<button class="nav-item ${S.tab===key?'active':''}" data-tab="${key}" ${S.tab===key?'aria-current="page"':''}>${icon(ico)}<span>${name}</span>${extra}</button>`;
 function shellView(){const title=views[S.tab]?.[0]||'Resumen';return `<aside class="sidebar" id="sidebar">${brand()}<button class="league-switch" data-action="leagues">${icon('trophy')}<span><strong>${e(S.league?.name)}</strong><small>${S.demo?'Liga de demostración':'LALIGA Fantasy'}</small></span>${icon('down','chevron')}</button><p class="nav-label">MI COMPETICIÓN</p><nav class="nav-group" aria-label="Mi competición">${nav('overview','Resumen','grid')}${nav('squad','Mi plantilla','shirt')}${nav('market','Mercado','arrows')}${nav('rivals','Rivales','users')}${nav('calendar','Calendario','calendar')}</nav><p class="nav-label">MI VENTAJA</p><nav class="nav-group" aria-label="Mi ventaja">${nav('coach','Asistente','spark','<span class="nav-new">SMART</span>')}${nav('radar','Radar inteligente','radar')}${nav('alerts','Alertas','bell',alertItems().length?`<span class="nav-count">${alertItems().length}</span>`:'')}</nav><div class="side-bottom"><div class="side-tip"><span>${icon('bolt')} Cada decisión suma.</span><p>Descubre dónde puedes ganar puntos esta jornada.</p><button class="link-btn" data-tab="coach">Consultar al asistente ${icon('arrow')}</button></div><div class="side-profile"><div class="avatar-letter">${S.demo?'TU':e((S.auth.managerName||'M').slice(0,2).toUpperCase())}</div><div><div class="name">${S.demo?'Tu equipo':e(S.auth.managerName||'Mi cuenta')}</div><small>${S.demo?'Explorando la demo':'Cuenta conectada'}</small></div><button data-tab="settings" aria-label="Ajustes">${icon('sliders')}</button></div></div></aside><div class="shell"><header class="topbar"><div style="display:flex;align-items:center;gap:11px"><button class="icon-btn mobile-menu" data-action="menu" aria-label="Abrir navegación">${icon('menu')}</button><div class="breadcrumb"><span>Mi competición</span>${icon('chevron')}<strong>${title}</strong></div></div><div class="top-actions"><span class="badge">${S.live?'<span class="dot green"></span> Datos sincronizados':'<span class="dot amber"></span> Última copia disponible'}</span><button class="icon-btn" data-action="global-search" aria-label="Buscar jugadores">${icon('search')}</button><button class="icon-btn" data-tab="alerts" aria-label="Ver alertas">${icon('bell')}</button><span class="divider"></span><button class="top-round" data-action="my-profile" aria-label="Mi perfil">${S.demo?'TU':e((S.auth.managerName||'M').slice(0,2).toUpperCase())}</button></div></header><main class="content" id="main-content">${S.demo?`<div class="demo-strip">${icon('info')} <span>Demo · Ligas y saldo de ejemplo. Estadísticas públicas ${S.live?'consultadas en la API':'de la última copia'}.</span><button data-action="connect">Conectar mi cuenta ${icon('arrow')}</button></div>`:''}${S.errors.length?`<div class="error-inline" style="margin-bottom:15px">Sin actualizar: ${e(S.errors.join(', '))}. Se conserva la última copia disponible. <button class="link-btn" data-action="refresh">Reintentar</button></div>`:''}${S.privateErrors?.length?`<div class="error-inline" style="margin-bottom:15px">${S.privateErrors.map(e).join('<br>')} <button class="link-btn" data-action="refresh">Reintentar</button></div>`:''}${S.players.some(p=>p.probabilityMismatch)?`<div class="model-note" style="margin:0 0 16px"><strong>Titularidad pendiente de la jornada actual.</strong> La fuente está publicando otra jornada. Sus porcentajes siguen identificados por fecha y jornada, y se excluyen de las proyecciones actuales.</div>`:""}${pageHead()}${S.leagueLoading?'<div class="panel loading">Cargando tu liga y preparando el análisis…</div>':pageView()}<div class="source-line"><span><a href="https://fantasy.laliga.com/" target="_blank" rel="noopener">LALIGA Fantasy</a> · <a href="https://www.futbolfantasy.com/" target="_blank" rel="noopener">FútbolFantasy</a> · ${S.dataAt?'Consulta '+new Date(S.dataAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'Pendiente de sincronizar'}</span><span>Las proyecciones son estimaciones estadísticas, no resultados garantizados.</span></div></main><footer class="app-footer">LAGUÍA · Fantasy Intelligence · Creada para los que juegan cada jornada.</footer></div><nav class="mobile-nav" aria-label="Navegación principal">${[['overview','Inicio','grid'],['squad','Plantilla','shirt'],['market','Mercado','arrows'],['coach','Asistente','spark'],['radar','Radar','radar']].map(([k,n,i])=>`<button class="${S.tab===k?'active':''} ${k==='coach'?'coach-nav':''}" data-tab="${k}">${icon(i)}<span>${n}</span></button>`).join('')}</nav>`}
@@ -451,17 +486,77 @@ function selfRow(){return S.standings.find(row=>standingInfo(row).id===S.teamId)
 function ownPoints(){return standingInfo(selfRow()).points}
 function rank(){return standingInfo(selfRow()).rank}
 function dataPlayer(id){return S.roster.find(p=>p.id===id)||S.market.find(p=>p.id===id)||S.players.find(p=>p.id===id)||[...S.rivalRosters.values()].flat().find(p=>p.id===id)}
-function playerCell(p){return `<button class="player-cell" data-player="${e(p.id)}" data-player-team="${e(p.ownerTeamId)}">${p.image?`<img src="${e(p.image)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span class="avatar-letter">'+e(p.name.slice(0,1))+'</span>'}<span><strong>${e(p.name)}</strong><small>${e(p.shortTeam||p.team)} <span style="opacity:.3">·</span> ${POS[p.position]||'—'}</small>${shieldBadge(p)}</span></button>`}
+function playerCell(p, draggable=false){return `<button class="player-cell" data-player="${e(p.id)}" data-player-team="${e(p.ownerTeamId)}" title="Ver ficha de ${e(p.name)}" ${draggable?`draggable="true" data-lineup-drag="${e(p.id)}"`:''}>${p.image?`<img src="${e(p.image)}" alt="" loading="lazy" draggable="false" onerror="this.style.visibility='hidden'">`:'<span class="avatar-letter">'+e(p.name.slice(0,1))+'</span>'}<span><strong>${e(p.name)}</strong><small>${e(p.shortTeam||p.team)} <span style="opacity:.3">·</span> ${POS[p.position]||'—'}</small>${shieldBadge(p)}</span></button>`}
 function formHtml(p){return `<span class="form" aria-label="Últimos puntos: ${p.form.join(', ')}">${p.form.map(x=>`<span class="${x>=7?'high':x<=2?'low':''}">${x}</span>`).join('')||'—'}</span>`}
 function probHtml(p){return `<span class="prob ${p.prob!==null&&p.prob<65?'low':''}" title="FútbolFantasy · Jornada ${p.probWeek||'—'}">${p.prob===null?'Sin dato':num(p.prob,0)+'%'}</span>`}
-function pitchHtml(lineup=bestLineup()){if(!lineup)return `<div class="empty-state">${icon('shirt')}<h3>Hace falta un once completo</h3><p>Tu plantilla necesita al menos un portero y suficientes jugadores en cada posición para formar un once válido.</p></div>`;const captain=lineup.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];return `<div class="pitch"><div class="pitch-lines"><div class="penalty top"></div><div class="penalty bottom"></div></div><div class="pitch-players">${[4,3,2,1].map(pos=>`<div class="pitch-row">${lineup.players.filter(p=>p.position===pos).map(p=>`<button class="pitch-player" data-player="${e(p.id)}" title="${e(p.name)} · ${num(p.expected)} puntos estimados">${p.id===captain?.id?'<span class="captain-dot" title="Mayor proyección">★</span>':''}${p.image?`<img src="${e(p.image)}" alt="" loading="lazy">`:`<span class="shirt">${icon('shirt')}</span>`}<span class="pitch-name"><strong>${e(p.name)}${isShielded(p)?icon('shield','pitch-shield'):''}</strong><em>${num(p.expected)}</em></span><span class="pitch-prob">${p.prob===null?'Sin probabilidad':p.prob+'% titular'}</span></button>`).join('')}</div>`).join('')}</div></div>`}
+function pitchHtml(lineup=bestLineup(),showMetric=false){if(!lineup)return `<div class="empty-state">${icon('shirt')}<h3>Hace falta un once completo</h3><p>Tu plantilla necesita al menos un portero y suficientes jugadores en cada posición para formar un once válido.</p></div>`;const captain=lineup.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];return `<div class="pitch"><div class="pitch-lines"><div class="penalty top"></div><div class="penalty bottom"></div></div><div class="pitch-players">${[4,3,2,1].map(pos=>`<div class="pitch-row">${lineup.players.filter(p=>p.position===pos).map(p=>`<button class="pitch-player" data-player="${e(p.id)}" ${showMetric?`draggable="true" data-lineup-drag="${e(p.id)}" data-lineup-slot="${e(p.id)}" data-lineup-position="${p.position}"`:''} title="${e(p.name)} · ${num(p.expected)} puntos estimados">${p.id===captain?.id?'<span class="captain-dot" title="Mayor proyección">★</span>':''}${p.image?`<img src="${e(p.image)}" alt="" loading="lazy" draggable="false">`:`<span class="shirt">${icon('shirt')}</span>`}<span class="pitch-name"><strong>${e(p.name)}${isShielded(p)?icon('shield','pitch-shield'):''}</strong>${showMetric?'':`<em>${num(p.expected)}</em>`}</span>${showMetric?squadPitchMetrics(p):`<span class="pitch-prob">${p.prob===null?'Sin probabilidad':p.prob+'% titular'}</span>`}</button>`).join('')}</div>`).join('')}</div></div>`}
 function statCard(label,value,foot,ico,color='',mini=false){return `<article class="stat-card"><div class="stat-top"><span>${label}</span>${icon(ico)}</div><div class="stat-value ${color}">${value}</div><div class="stat-foot">${foot}</div>${mini?'<svg class="mini-line" viewBox="0 0 65 27" fill="none"><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9" stroke="#5adea5" stroke-width="1.5"/><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9v24H1" fill="#5adea508"/></svg>':''}</article>`}
 function overviewView(){const lineup=bestLineup();const r=rank(),points=ownPoints(),leader=S.standings[0];const leaderPoints=standingInfo(leader).points;const distance=points!==null&&leaderPoints!==null?leaderPoints-points:null;const actions=actionItems();return `<section class="command-banner" data-week="${S.week.weekNumber||''}"><div class="command-text"><div class="eyebrow">${icon('spark')} TU VENTAJA ESTA JORNADA</div><h2>${lineup?'Un buen once es solo el principio.':'Tu próxima victoria empieza aquí.'}</h2><p>${S.roster.length?`Hemos analizado tus ${S.roster.length} jugadores. ${alertItems().length?'Hay '+alertItems().length+' señales que conviene revisar.':'Tu plantilla está lista para que tomes la siguiente decisión.'}`:'Conecta tu equipo para descubrir dónde ganar puntos.'}</p><button class="btn primary" data-tab="squad">Revisar mi alineación ${icon('arrow')}</button></div><div class="deadline"><small>PRÓXIMO CIERRE DE ONCE</small><div class="time" id="countdown">— : — : —</div><div class="units"><span>DÍAS</span><span>HORAS</span><span>MINUTOS</span></div></div></section>${rewardView()}<div class="stats-grid">${statCard('Puntos totales',num(points,0),S.demo?'Liga de demostración':'Acumulado en tu liga','trophy','',true)}${statCard('Posición en la liga',r?r+'<small> / '+(S.demo?S.league.members:S.standings.length)+'</small>':'—',distance!==null&&r>1?`<span class="green">${icon('trend')} A ${num(distance,0)} puntos del líder</span>`:r===1?'<span class="green">Lideras tu liga</span>':'Esperando clasificación','chart')}${statCard('Presupuesto disponible',S.balance!==null?num(S.balance/1e6,1)+' <small>M €</small>':'—',S.demo?'Saldo de ejemplo':'Saldo de tu equipo','wallet')}${statCard('Proyección de tu once',lineup?num(lineup.score)+' <small>pts</small>':'—',`<span class="${lineup?.incomplete?'amber':'green'}">${icon('spark')} ${lineup?.incomplete?'Faltan probabilidades':'Estimación, no garantía'}</span>`,'target')}</div><div class="section-top"><h2>${icon('spark')} Tu siguiente jugada</h2><small>Basada en tus datos</small></div><div class="ai-grid">${actions.map(a=>`<article class="action-card"><div class="action-top"><span class="action-icon ${a.tone}">${icon(a.icon)}</span><span class="action-priority">${a.label}</span></div><h3>${e(a.title)}</h3><p>${e(a.text)}</p><div class="action-bottom"><span class="${a.tone==='danger'?'amber':''}">${e(a.metric)}</span><button class="link-btn" ${a.player?'data-player="'+e(a.player)+'"':'data-tab="'+a.tab+'"'}>${a.cta} ${icon('arrow')}</button></div></article>`).join('')}</div><div class="dashboard-grid"><section class="panel lineup-panel"><div class="panel-head"><div><h2>Tu once recomendado <span class="formation-tag">${lineup?.formation||'—'}</span></h2><small>Proyección · Jornada ${S.week.weekNumber||'—'}</small></div><button class="link-btn" data-tab="squad">Gestionar ${icon('arrow')}</button></div>${pitchHtml(lineup)}<div class="pitch-footer"><span>${icon('shield')} ${lineup?.incomplete?'Consulta los datos pendientes':'Optimizado según media y titularidad'}</span><span class="green">${lineup?num(lineup.score)+' pts est.':'—'}</span></div></section><section class="panel"><div class="panel-head"><h2>En tu punto de mira</h2><button class="link-btn" data-tab="alerts">Ver todo ${icon('arrow')}</button></div><div class="insight-list">${insightItems().map(i=>`<div class="insight-item"><div class="insight-symbol" style="color:${i.color}">${icon(i.icon)}</div><div><h3>${e(i.title)}</h3><p>${e(i.text)}</p><time>${e(i.source)}</time></div>${i.tag?`<span class="badge ${i.tone}">${e(i.tag)}</span>`:''}</div>`).join('')}</div></section></div><section class="panel dashboard-bottom"><div class="panel-head"><h2>${icon('arrows')} Oportunidades del mercado</h2><button class="link-btn" data-tab="market">Explorar mercado ${icon('arrow')}</button></div>${tableHtml(recommendations(S.roster,available(),S.balance??Infinity).filter(r=>r.gain>0).slice(0,4).map(r=>r.player),'mini')}</section>`}
 function actionItems(){const lineup=bestLineup();const risky=S.roster.filter(p=>p.prob!==null&&!p.probabilityMismatch&&p.prob<50).sort((a,b)=>a.prob-b.prob)[0];const rec=recommendations(S.roster,available(),S.balance??Infinity).find(r=>r.gain>0);const value=available().filter(p=>p.value>0&&p.prob>=80).sort((a,b)=>b.efficiency-a.efficiency)[0];return [{icon:'shield',tone:risky?'danger':'',label:risky?'REVISA TU PLANTILLA':'ALINEACIÓN',title:risky?'Evita un posible cero':'Un once con fundamento',text:risky?`${risky.name} tiene un ${risky.prob}% de probabilidad de ser titular. Valora una alternativa.`:lineup?`${lineup.formation} es la formación con más puntos esperados para tu plantilla.`:'Revisa las posiciones disponibles antes del cierre.',metric:risky?'Atención a la titularidad':lineup?num(lineup.score)+(lineup.incomplete?' pts · parcial':' pts estimados'):'Completa tu once',cta:'Revisar once',tab:'squad'}, {icon:'trend',tone:'',label:'OPORTUNIDAD',title:rec?'Un fichaje que puede sumar':'Busca rendimiento por euro',text:rec?`${rec.player.name}${rec.replace?' por '+rec.replace.name:''}: una mejora estimada dentro de tu presupuesto.`:'Ordena el mercado por eficiencia para encontrar jugadores asequibles.',metric:rec?'+'+num(rec.gain)+' pts est.':'Radar de valor',cta:rec?'Ver jugador':'Ver mercado',player:rec?.player.id,tab:'market'}, {icon:'bolt',tone:'gold',label:'VALOR INTELIGENTE',title:value?'El precio también juega':'Prepara tu estrategia',text:value?`${value.name}: ${num(value.expected)} puntos estimados por ${formatMoney(value.value)}. Compara antes de pujar.`:'Tu asistente cruza media, forma reciente y probabilidades publicadas.',metric:value?num(value.efficiency,2)+' pts / M €':'Datos, después decisiones',cta:value?'Analizar':'Abrir asistente',player:value?.id,tab:'coach'}]}
 function insightItems(){const items=[];const risk=S.roster.filter(p=>p.prob!==null&&!p.probabilityMismatch&&p.prob<50);if(risk.length)items.push({icon:'alert',title:'No regales un puesto',text:risk.slice(0,2).map(p=>p.name+' ('+p.prob+'%)').join(' y ')+'. Revisa sus alternativas antes de cerrar el once.',source:'FútbolFantasy · J'+(risk[0].probWeek||'—'),tag:'RIESGO',tone:'warn',color:'#f5bc65'});const top=bestLineup()?.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];if(top)items.push({icon:'target',title:'Tu referencia esta jornada',text:`${top.name} tiene la mayor proyección de tu once: ${num(top.expected)} puntos estimados.`,source:'Modelo estadístico LAGUÍA',tag:'DESTACADO',tone:'good',color:'#5adea5'});items.push({icon:'clock',title:'El once se prepara antes del cierre',text:S.week.openingWeekDate?'La jornada empieza el '+dateText(S.week.openingWeekDate)+'. Comprueba tu saldo y las últimas probabilidades.':'Consulta el calendario oficial para confirmar el comienzo de la jornada.',source:'Calendario LALIGA Fantasy',tag:'J'+(S.week.weekNumber||'—'),color:'#a3adc5'});items.push({icon:'radar',title:S.watch.length?'Tu lista sigue en juego':'Ojos en el mercado',text:S.watch.length?'Sigues a '+S.watch.length+' jugadores. Encuéntralos juntos en Mercado → Seguimiento.':'Marca la estrella de cualquier jugador para seguirlo y comparar tus objetivos.',source:'Tu espacio de seguimiento · este dispositivo',color:'#ad9bc8'});return items.slice(0,4)}
-function tableHtml(players,mode='full'){const listings=mode==='league';if(!players.length)return `<div class="empty-state">${icon('search')}<h3>${mode==='mini'?'Sin mejoras claras dentro de tu saldo':'No hay jugadores con estos filtros'}</h3><p>${mode==='mini'?'Amplía el análisis en Mercado. La mejor decisión también puede ser esperar.':'Prueba con otra búsqueda, otra posición o elimina algún filtro.'}</p></div>`;return `<div class="table-scroll ${mode==='mini'?'':'full-table'}"><table class="${listings?'market-listings':''}"><thead><tr><th>JUGADOR</th><th>${listings?'PRECIO DE SALIDA':'VALOR'}</th><th>PUNTOS</th><th>ÚLTIMAS 5</th><th>TITULAR</th><th>PROYECCIÓN</th>${listings?'<th>MERCADO</th>':''}<th><span class="screen-reader">Seguimiento</span></th></tr></thead><tbody>${players.map(p=>`<tr><td>${playerCell(p)}</td><td>${formatMoney(p.price??p.value)}</td><td><span class="points">${num(p.points,0)}</span> <small style="font-size:11px">· ${num(p.average)} med.</small></td><td>${formHtml(p)}</td><td>${probHtml(p)}</td><td class="xp">${num(p.expected)} <small style="font-size:11px">pts est.</small></td>${listings?`<td class="market-op-cell"><strong>${e(listingStatus(p))}</strong>${dated(p.expires)?`<small class="listing-status">Hasta ${e(dateOrDash(p.expires))}</small>`:''}${listingButton(p)}</td>`:''}<td><button class="watch ${S.watch.includes(p.id)?'on':''}" data-watch="${e(p.id)}" aria-label="${S.watch.includes(p.id)?'Dejar de seguir':'Seguir a'} ${e(p.name)}" aria-pressed="${S.watch.includes(p.id)}">${icon('star')}</button></td></tr>`).join('')}</tbody></table></div>`}
-function marketFiltered(){let source=S.marketTab==='league'?S.market:S.marketTab==='watch'?S.players.filter(p=>S.watch.includes(p.id)):S.players;let list=source.filter(p=>(S.position==='all'||p.position===Number(S.position))&&(!S.search||p.name.toLocaleLowerCase('es').includes(S.search.toLocaleLowerCase('es'))||p.team.toLocaleLowerCase('es').includes(S.search.toLocaleLowerCase('es'))));const sorts={points:(a,b)=>b.points-a.points,average:(a,b)=>b.average-a.average,expected:(a,b)=>(b.expected??-1)-(a.expected??-1),value:(a,b)=>b.value-a.value,cheap:(a,b)=>a.value-b.value,prob:(a,b)=>(b.prob??-1)-(a.prob??-1),efficiency:(a,b)=>b.efficiency-a.efficiency,recent:(a,b)=>b.recent-a.recent};return list.sort(sorts[S.sort]||sorts.points)}
-function marketView(){const list=marketFiltered();S.page=Math.min(S.page,Math.max(0,Math.ceil(list.length/15)-1));const players=list.slice(S.page*15,S.page*15+15);return `<div class="subnav" aria-label="Origen de jugadores">${[['all','Todos los jugadores'],['league','Mercado de mi liga'],['watch','Seguimiento ('+S.watch.length+')']].map(([k,v])=>`<button class="${S.marketTab===k?'active':''}" data-market-tab="${k}">${v}</button>`).join('')}</div><section class="panel"><div class="toolbar"><div class="search">${icon('search')}<input id="market-search" type="search" value="${e(S.search)}" placeholder="Busca un jugador o un equipo…" aria-label="Buscar jugador o equipo"></div><div class="pills">${[['all','Todos'],['1','POR'],['2','DEF'],['3','MED'],['4','DEL']].map(([k,v])=>`<button class="pill ${S.position===k?'active':''}" data-position="${k}">${v}</button>`).join('')}</div><label class="screen-reader" for="market-sort">Ordenar jugadores</label><select id="market-sort">${[['points','Puntos totales'],['expected','Proyección de puntos'],['average','Media de puntos'],['recent','Forma reciente'],['prob','Probabilidad de titular'],['value','Valor de mercado ↓'],['cheap','Valor de mercado ↑'],['efficiency','Puntos por millón']].map(([k,v])=>`<option value="${k}" ${S.sort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="comparison-bar">${icon('compare')} <span>Una decisión. Dos opciones.</span><select id="compare-a" aria-label="Primer jugador para comparar"><option value="">Jugador A</option>${playerOptions(S.compareA)}</select><span>vs.</span><select id="compare-b" aria-label="Segundo jugador para comparar"><option value="">Jugador B</option>${playerOptions(S.compareB)}</select><button class="btn small" data-action="compare">Comparar ${icon('arrow')}</button></div><div id="market-results">${tableHtml(players,S.marketTab==='league'?'league':'full')}</div><div class="pagination"><span>${list.length?'Mostrando '+(S.page*15+1)+'–'+Math.min((S.page+1)*15,list.length)+' de '+list.length:'0'} jugadores</span><div class="pagination-buttons"><button class="icon-btn" data-action="prev-page" aria-label="Página anterior" ${S.page===0?'disabled':''}>${icon('left')}</button><button class="icon-btn" data-action="next-page" aria-label="Página siguiente" ${(S.page+1)*15>=list.length?'disabled':''}>${icon('chevron')}</button></div></div></section><div class="model-note"><strong>Decide con contexto.</strong> La proyección combina media de temporada (60%), últimas cinco jornadas (40%) y probabilidad de titularidad. Un guion indica que falta un dato. ${S.marketTab==='league'?(S.demo?'Anuncios de ejemplo.':'Pulsa Pujar para revisar y confirmar el importe.'):'El catálogo general incluye jugadores que pueden pertenecer a otros mánagers.'}</div><div class="budget-box">${icon('wallet')}<label for="planner-budget">Tu límite para planificar un fichaje<p>Simula un presupuesto para el asistente.</p></label><input id="planner-budget" type="number" min="0" step="0.1" value="${numRaw(S.budget/1e6)}" aria-label="Presupuesto en millones de euros"><span class="muted">M €</span><button class="btn small" data-action="budget-analyze">${icon('spark')} Analizar</button></div>`}
+function tableHtml(players,mode='full'){const listings=mode==='league';if(!players.length)return `<div class="empty-state">${icon('search')}<h3>${mode==='mini'?'Sin mejoras claras dentro de tu saldo':'No hay jugadores con estos filtros'}</h3><p>${mode==='mini'?'Amplía el análisis en Mercado. La mejor decisión también puede ser esperar.':'Prueba con otra búsqueda, otra posición o elimina algún filtro.'}</p></div>`;return `<div class="table-scroll ${mode==='mini'?'':'full-table'}"><table class="${listings?'market-listings':''}"><thead><tr><th>JUGADOR</th><th>${listings?'PRECIO DE SALIDA':'VALOR'}</th>${mode!=='mini'?'<th>VARIACIÓN DIARIA</th>':''}<th>PUNTOS</th><th>ÚLTIMAS 5</th><th>TITULAR</th><th>PROYECCIÓN</th>${listings?'<th>MERCADO</th>':''}<th><span class="screen-reader">Seguimiento</span></th></tr></thead><tbody>${players.map(p=>`<tr><td>${playerCell(p)}</td><td>${formatMoney(marketPrice(p))}</td>${mode!=='mini'?marketTrendCell(p):''}<td><span class="points">${num(p.points,0)}</span> <small style="font-size:11px">· ${num(p.average)} med.</small></td><td>${formHtml(p)}</td><td>${probHtml(p)}</td><td class="xp">${num(p.expected)} <small style="font-size:11px">pts est.</small></td>${listings?`<td class="market-op-cell"><strong>${e(listingStatus(p))}</strong>${dated(p.expires)?`<small class="listing-status">Hasta ${e(dateOrDash(p.expires))}</small>`:''}${listingButton(p)}</td>`:''}<td><button class="watch ${S.watch.includes(p.id)?'on':''}" data-watch="${e(p.id)}" aria-label="${S.watch.includes(p.id)?'Dejar de seguir':'Seguir a'} ${e(p.name)}" aria-pressed="${S.watch.includes(p.id)}">${icon('star')}</button></td></tr>`).join('')}</tbody></table></div>`}
+const isLeagueListing = player => player.listingType === 'marketPlayerLeague';
+const isManagerListing = player => player.listingType === 'marketPlayerTeam';
+const marketPageSize = 15;
+const marketPrice = player => player.price ?? player.value;
+const marketDailyChange = player => ffFor(player)?.dailyChange ?? null;
+const marketTrendSort = () => ['rise','fall'].includes(S.sort);
+const sellerOrder = player => isLeagueListing(player) ? 0 : isManagerListing(player) ? 1 : 2;
+
+function marketCandidates() {
+ const source = S.marketTab==='league' ? S.market : S.marketTab==='watch' ? S.players.filter(p=>S.watch.includes(p.id)) : S.players;
+ const search = nameKey(S.search);
+ const seller = S.marketTab==='league' ? S.marketSeller : 'grouped';
+ return source.filter(p=>
+  (S.position==='all' || p.position===Number(S.position)) &&
+  (!search || nameKey(p.name).includes(search) || nameKey(p.team).includes(search)) &&
+  (seller!=='league' || isLeagueListing(p)) &&
+  (seller!=='manager' || isManagerListing(p)));
+}
+
+function marketFiltered() {
+ const change = (a,b,direction) => {
+  const x = marketDailyChange(a);
+  const y = marketDailyChange(b);
+  if (x===null || y===null) return Number(x===null)-Number(y===null);
+  return (x-y)*direction;
+ };
+ const sorts = {
+  points:(a,b)=>b.points-a.points, average:(a,b)=>b.average-a.average, expected:(a,b)=>(b.expected??-1)-(a.expected??-1),
+  value:(a,b)=>b.value-a.value, cheap:(a,b)=>a.value-b.value, prob:(a,b)=>(b.prob??-1)-(a.prob??-1),
+  efficiency:(a,b)=>b.efficiency-a.efficiency, recent:(a,b)=>b.recent-a.recent,
+  priceAsc:(a,b)=>marketPrice(a)-marketPrice(b), priceDesc:(a,b)=>marketPrice(b)-marketPrice(a),
+  rise:(a,b)=>change(a,b,-1),fall:(a,b)=>change(a,b,1),
+ };
+ const sort = sorts[S.sort] || sorts.points;
+ const grouped = S.marketTab==='league' && S.marketSeller==='grouped';
+ return marketCandidates().sort((a,b)=>(grouped?sellerOrder(a)-sellerOrder(b):0) || sort(a,b) || b.points-a.points);
+}
+
+function marketPage(list) {
+ return list.slice(S.page*marketPageSize,(S.page+1)*marketPageSize);
+}
+
+async function loadMarketTrends() {
+ const results = $('#market-results');
+ if (!results) return;
+ const players = marketTrendSort() ? marketCandidates() : marketPage(marketFiltered());
+ const teams = [...new Set(players.map(ffTeamSlug).filter(Boolean))]
+  .filter(slug=>(ffTeams.get(slug)?.until??0)<=Date.now());
+ for (let i=0;i<teams.length;i+=4) {
+  if (!results.isConnected) return;
+  await Promise.all(teams.slice(i,i+4).map(loadFfTeam));
+  if (results.isConnected) results.innerHTML = tableHtml(marketPage(marketFiltered()),S.marketTab==='league'?'league':'full');
+ }
+}
+
+function marketTrendCell(p) {
+ const change = marketDailyChange(p);
+ return `<td class="market-delta ${change>0?'green':change<0?'amber':''}">${deltaMoney(change)}</td>`;
+}
+function marketView(){const list=marketFiltered();S.page=Math.min(S.page,Math.max(0,Math.ceil(list.length/marketPageSize)-1));const players=marketPage(list);return `<div class="subnav" aria-label="Origen de jugadores">${[['all','Todos los jugadores'],['league','Mercado de mi liga'],['watch','Seguimiento ('+S.watch.length+')']].map(([k,v])=>`<button class="${S.marketTab===k?'active':''}" data-market-tab="${k}">${v}</button>`).join('')}</div><section class="panel"><div class="toolbar"><div class="search">${icon('search')}<input id="market-search" type="search" value="${e(S.search)}" placeholder="Busca un jugador o un equipo…" aria-label="Buscar jugador o equipo"></div><div class="pills">${[['all','Todos'],['1','POR'],['2','DEF'],['3','MED'],['4','DEL']].map(([k,v])=>`<button class="pill ${S.position===k?'active':''}" data-position="${k}">${v}</button>`).join('')}</div>${S.marketTab==='league'?`<select id="market-seller" aria-label="Vendedor">
+ ${[['grouped','Todos · LaLiga primero'],['league','Solo LaLiga'],['manager','Solo mánagers'],['all','Todos · Sin agrupar']].map(([key,label])=>`<option value="${key}" ${S.marketSeller===key?'selected':''}>${label}</option>`).join('')}
+ </select>`:''}<label class="screen-reader" for="market-sort">Ordenar jugadores</label><select id="market-sort">${[['points','Puntos totales'],['expected','Proyección de puntos'],['average','Media de puntos'],['recent','Forma reciente'],['prob','Probabilidad de titular'],['value','Valor de mercado ↓'],['cheap','Valor de mercado ↑'],['efficiency','Puntos por millón'],['rise','Mayor subida diaria'],['fall','Mayor bajada diaria'],...(S.marketTab==='league'?[['priceAsc','Menor precio de salida'],['priceDesc','Mayor precio de salida']]:[])].map(([k,v])=>`<option value="${k}" ${S.sort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="comparison-bar">${icon('compare')} <span>Una decisión. Dos opciones.</span><select id="compare-a" aria-label="Primer jugador para comparar"><option value="">Jugador A</option>${playerOptions(S.compareA)}</select><span>vs.</span><select id="compare-b" aria-label="Segundo jugador para comparar"><option value="">Jugador B</option>${playerOptions(S.compareB)}</select><button class="btn small" data-action="compare">Comparar ${icon('arrow')}</button></div><div id="market-results">${tableHtml(players,S.marketTab==='league'?'league':'full')}</div><div class="pagination"><span>${list.length?'Mostrando '+(S.page*marketPageSize+1)+'–'+Math.min((S.page+1)*marketPageSize,list.length)+' de '+list.length:'0'} jugadores</span><div class="pagination-buttons"><button class="icon-btn" data-action="prev-page" aria-label="Página anterior" ${S.page===0?'disabled':''}>${icon('left')}</button><button class="icon-btn" data-action="next-page" aria-label="Página siguiente" ${(S.page+1)*marketPageSize>=list.length?'disabled':''}>${icon('chevron')}</button></div></div></section><div class="model-note"><strong>Decide con contexto.</strong> La proyección combina media de temporada (60%), últimas cinco jornadas (40%) y probabilidad de titularidad. Un guion indica que falta un dato. ${S.marketTab==='league'?(S.demo?'Anuncios de ejemplo.':'Pulsa Pujar para revisar y confirmar el importe.'):'El catálogo general incluye jugadores que pueden pertenecer a otros mánagers.'}</div><div class="budget-box">${icon('wallet')}<label for="planner-budget">Tu límite para planificar un fichaje<p>Simula un presupuesto para el asistente.</p></label><input id="planner-budget" type="number" min="0" step="0.1" value="${numRaw(S.budget/1e6)}" aria-label="Presupuesto en millones de euros"><span class="muted">M €</span><button class="btn small" data-action="budget-analyze">${icon('spark')} Analizar</button></div>`}
 function numRaw(n){return Number.isFinite(n)?String(Math.round(n*10)/10):'0'}
 function playerOptions(selected){return S.players.slice().sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`<option value="${e(p.id)}" ${selected===p.id?'selected':''}>${e(p.name)}</option>`).join('')}
 let officialSync = null;
@@ -578,12 +673,17 @@ function openTrade({listingId, slotId, sellerId}) {
  tradeConfirm(tradeDraft);
 }
 
+function tradeTotals(items) {
+ return `<dl class="trade-meta">${items.map(([label,total]) =>
+  `<div><dt>${e(label)}</dt><dd>${e(total)}</dd></div>`).join('')}</dl>`;
+}
+
 function tradeForm(draft) {
  const {league, player, title, minimum, start} = draft;
  const dialog = overlay(`<div class="modal-top"><h2>${e(title)} por ${e(player.name)}</h2>
   <button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div>
   <p class="hint">${e(league.name)} · ${draft.action === 'bid' ? 'La puja se resuelve cuando termina el anuncio.' : 'El mánager del jugador decide si acepta la oferta.'}</p>
-  <div class="trade-meta">${kvHtml([['Precio de salida',fmtFull(player.price)],['Saldo actual',fmtFull(S.balance)]])}</div>
+  ${tradeTotals([['Precio de salida',fmtFull(player.price)],['Saldo actual',fmtFull(S.balance)]])}
   <form id="real-trade-form">
    <label class="trade-input" for="trade-amount">Importe en euros
     <input id="trade-amount" type="number" min="${minimum}" step="1" value="${Math.max(minimum,start)}" required>
@@ -602,10 +702,10 @@ function tradeConfirm(draft) {
  overlay(`<div class="modal-top"><h2>Confirmar ${operation}</h2>
   <button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div>
   <p><strong>${e(player.name)}</strong> · ${e(league.name)}${clause ? ' · ' + e(player.ownerName) : ''}</p>
-  <div class="trade-meta">${kvHtml([
+  ${tradeTotals([
    [clause ? 'Cláusula' : 'Importe', fmtFull(amount)],
    [clause ? 'Saldo tras el fichaje' : 'Saldo actual', fmtFull(clause ? balanceAfter : S.balance)],
-  ])}</div>
+  ])}
   <p class="hint">${clause ? 'Si LALIGA acepta el clausulazo, ficharás al jugador y se descontará el importe al instante.'
    : action === 'bid' ? 'La puja se envía a LALIGA y compite con las demás cuando termina el anuncio.'
    : 'La oferta se envía al mánager que tiene al jugador.'}</p>
@@ -705,11 +805,7 @@ const squadMetrics = {
   ['Últimas 5', p => formHtml(p)],
   ['Proyección', p => unit(p.expected, ' pts')],
  ]],
- value: ['Valores de mercado', [
-  ['Valor', (p, ff) => fmtFull(ff?.value ?? (p.value || null))],
-  ['Variación diaria', (p, ff) => `<span class="${ff?.dailyChange > 0 ? 'green' : ff?.dailyChange < 0 ? 'amber' : ''}">${deltaMoney(ff?.dailyChange)}</span>`],
-  ['Precio de salida', p => fmtFull(marketFor(p.id)?.price)],
- ]],
+ value: ['Valores de mercado'],
  last: ['Puntos última jornada', [
   ['Última jornada', p => previousWeek() ? 'J' + previousWeek() : p.weeks.length ? 'J' + p.weeks.at(-1).week : '—'],
   ['Puntos', p => fmtInteger(previousWeek() ? p.weeks.find(w => w.week === previousWeek())?.points : p.weeks.at(-1)?.points)],
@@ -754,26 +850,173 @@ const squadMetrics = {
  ]],
 };
 
+const marketHistoryCache = new Map();
+const squadValueModes = [
+ ['daily','Última variación'],['7','Últimos 7 días'],['30','Últimos 30 días'],['90','Últimos 90 días'],
+ ['month','Mes concreto'],['day','Día concreto'],['range','Rango de fechas'],
+];
+
+function marketHistoryFor(id) {
+ if (!marketHistoryCache.has(id)) {
+  const request = data(privateBase + '/player/' + encodeURIComponent(id) + '/market-value').then(historyValues).catch(error => {
+   marketHistoryCache.delete(id);
+   throw error;
+  });
+  marketHistoryCache.set(id,request);
+ }
+ return marketHistoryCache.get(id);
+}
+
+function squadValueState() {
+ return S.squadValue ??= {mode:'daily',month:'',day:'',from:'',to:'',histories:new Map(),loading:false};
+}
+
+function squadValueControls() {
+ if (S.squadMetric !== 'value') return '';
+ const state = squadValueState();
+ const latest = S.dataAt ? chartDay(S.dataAt) : madridDay.format(new Date());
+ const monthStart = latest.slice(0,7) + '-01T12:00:00Z';
+ const months = Array.from({length:18},(_,index) => {
+  const date = new Date(monthStart);
+  date.setUTCMonth(date.getUTCMonth()-index);
+  return [date.toISOString().slice(0,7),monthLabel.format(date)];
+ });
+ state.month ||= months[0][0];
+ state.day ||= latest;
+ state.from ||= dateWindowEnd(latest,30);
+ state.to ||= latest;
+ const options = (choices,selected) => choices.map(([id,label]) =>
+  `<option value="${e(id)}" ${id===selected?'selected':''}>${e(label)}</option>`).join('');
+ const dateField = (label,key) => `<label>${label}<input type="date" data-squad-value="${key}" value="${e(state[key])}"></label>`;
+ return `<div class="chart-filters squad-value-filters">
+  <label>Periodo del valor<select data-squad-value="mode">${options(squadValueModes,state.mode)}</select></label>
+  ${state.mode==='month'?`<label>Mes<select data-squad-value="month">${options(months,state.month)}</select></label>`:''}
+  ${state.mode==='day'?dateField('Día','day'):''}
+  ${state.mode==='range'?dateField('Desde','from')+dateField('Hasta','to'):''}
+  <p class="hint squad-value-message" aria-live="polite">${e(squadValueMessage())}</p>
+ </div>`;
+}
+
+function squadValueMessage() {
+ const {mode,loading,from,to} = squadValueState();
+ if (mode==='range' && from && to && from>to) return 'La fecha inicial debe ser anterior o igual a la final.';
+ if (loading && mode !== 'daily') return 'Cargando históricos de la plantilla…';
+ return '';
+}
+
+function squadMarketValues(p,ff) {
+ const {mode,month,day,from,to,histories} = squadValueState();
+ const current = ff?.value ?? (p.value || null);
+ if (mode === 'daily') return {price:current,change:ff?.dailyChange ?? null};
+ const rows = histories.get(p.id)?.filter(row=>row.day) ?? [];
+ if (!rows.length) return {price:null,change:null};
+ if (mode === 'day') {
+  const selected = rows.find(row=>row.day===day);
+  return {price:selected?.value ?? null,change:selected && current!==null ? current-selected.value : null};
+ }
+ const first = mode==='range' ? from : mode==='month' ? month+'-01' : dateWindowEnd(rows.at(-1).day,Number(mode));
+ const last = mode==='range' ? to : mode==='month' ? month+'-31' : rows.at(-1).day;
+ const period = rows.filter(row=>first && last && row.day>=first && row.day<=last);
+ return {price:period.at(-1)?.value ?? null,change:period.length>1 ? period.at(-1).value-period[0].value : null};
+}
+
+function squadMetricColumns() {
+ if (S.squadMetric !== 'value') return squadMetrics[S.squadMetric][1];
+ const mode = squadValueState().mode;
+ return [
+  [mode==='day'?'Valor en esa fecha':mode==='daily'?'Valor':'Valor al cierre',(p,ff,compact) => {
+   const {price} = squadMarketValues(p,ff);
+   return compact ? formatMoney(price) : fmtFull(price);
+  }],
+  [mode==='day'?'Cambio desde esa fecha':mode==='daily'?'Variación diaria':'Variación del periodo',(p,ff,compact) => {
+   const {change} = squadMarketValues(p,ff);
+   return `<span class="${change>0?'green':change<0?'amber':''}">${compact && change!==null ?
+    (change>0?'+':'') + formatMoney(change) : deltaMoney(change)}</span>`;
+  }],
+  ['Precio de salida',p => fmtFull(marketFor(p.id)?.price)],
+ ];
+}
+
+function squadPitchMetrics(p) {
+ const ff = ffFor(p);
+ const columns = squadMetricColumns();
+ const preferred = {form:[1,3],last:[1],minutes:[2,0],market:[0,1]};
+ const indices = preferred[S.squadMetric] ?? [0,1];
+ return `<span class="pitch-data">${indices.map(index => {
+  const [label,display] = columns[index];
+  return `<span title="${e(label)}"><span class="screen-reader">${e(label)} </span>${display(p,ff,true)}</span>`;
+ }).join('')}</span>`;
+}
+
+function squadBench(lineup) {
+ const selected = new Set(lineup?.players.map(p=>p.id));
+ return S.roster.filter(p=>!selected.has(p.id));
+}
+
+function squadBenchContent(bench) {
+ return bench.length ? squadTable(bench,false) : '<div class="empty-state"><p>Sin suplentes en el once recomendado.</p></div>';
+}
+
+function refreshSquadMetrics() {
+ const grid = $('#squad-metrics');
+ if (!grid) return;
+ const lineup = bestLineup();
+ grid.innerHTML = squadTable(squadPlayers());
+ $('#squad-pitch').innerHTML = pitchHtml(lineup,true);
+ $('#squad-bench').innerHTML = squadBenchContent(squadBench(lineup));
+ const note = $('.squad-value-message');
+ if (note) note.textContent = squadValueMessage();
+ paintLineupSelection();
+}
+
+async function loadSquadMarketHistory() {
+ const state = squadValueState();
+ if (S.squadMetric!=='value' || state.mode==='daily' || state.loading) return;
+ const roster = S.roster;
+ const players = roster.filter(p=>!state.histories.has(p.id));
+ if (!players.length) return;
+ state.loading = true;
+ refreshSquadMetrics();
+ try {
+  for (let index=0; index<players.length; index+=4) {
+   if (S.screen!=='app' || S.tab!=='squad' || S.roster!==roster || S.squadMetric!=='value' || state.mode==='daily') break;
+   await Promise.allSettled(players.slice(index,index+4).map(async p => {
+    state.histories.set(p.id,await marketHistoryFor(p.id));
+   }));
+  }
+ } finally {
+  state.loading = false;
+  if (S.tab==='squad') {
+   refreshSquadMetrics();
+   if(S.roster!==roster) void loadSquadMarketHistory();
+  }
+ }
+}
+
 function squadPlayers() {
  return S.roster.slice().sort((a,b) => a.position - b.position || (b.expected ?? 0) - (a.expected ?? 0));
 }
 
-function squadTable(players) {
- const [, columns] = squadMetrics[S.squadMetric];
+function squadTable(players, actions = true) {
+ const columns = squadMetricColumns();
+ const canPlace=!!bestLineup();
  return `<div class="table-scroll full-table squad-stats-scroll" tabindex="0" aria-label="Estadísticas de la plantilla">
   <table class="squad-stats">
    <thead><tr><th scope="col">Jugador</th>${columns.map(([label]) => `<th scope="col">${e(label)}</th>`).join('')}
-    <th scope="col">Acciones</th></tr></thead>
+    ${actions?'<th scope="col">Acciones</th>':''}</tr></thead>
    <tbody>${players.map(p => {
     const ff = ffFor(p);
     const locked = S.locked.includes(p.id);
-    return `<tr><td>${playerCell(p)}</td>${columns.map(([, renderCell]) => `<td>${renderCell(p, ff)}</td>`).join('')}
-      <td><div class="row-actions">
-       <button class="icon-btn ${locked ? 'red' : ''}" data-lock="${e(p.id)}"
+    const place=canPlace?`<button class="btn small" data-lineup-pick="${e(p.id)}" aria-label="Colocar a ${e(p.name)}"
+      aria-pressed="${S.lineupPick===p.id}">Colocar</button>`:'';
+    return `<tr><td>${playerCell(p,true)}${actions?'':place}</td>
+      ${columns.map(([, renderCell]) => `<td>${renderCell(p, ff)}</td>`).join('')}
+      ${actions?`<td><div class="row-actions">
+       ${place}<button class="icon-btn ${locked ? 'red' : ''}" data-lock="${e(p.id)}"
         aria-label="${locked ? 'Desfijar a' : 'Fijar en el once a'} ${e(p.name)}" aria-pressed="${locked}"
         title="${locked ? 'Desfijar del once' : 'Fijar en el once'}">${icon(locked ? 'lock' : 'shirt')}</button>
        ${shieldControl(p, true)}
-      </div></td></tr>`;
+      </div></td>`:''}</tr>`;
    }).join('')}</tbody>
   </table>
  </div>`;
@@ -793,6 +1036,7 @@ function squadStatsView(bench) {
      `<option value="${key}" ${S.squadMetric === key ? 'selected' : ''}>${e(label)}</option>`).join('')}</select>
    </label>
   </div>
+  <div id="squad-value-controls">${squadValueControls()}</div>
   <div id="squad-metrics">${squadTable(players)}</div>
   <div class="roster-meta"><span>${bench.length} en el banquillo · ${S.locked.length} fijados</span>
    <span>${players.filter(isShielded).length} blindados · ${formatMoney(players.reduce((sum,p) => sum + p.value,0))}</span>
@@ -828,9 +1072,8 @@ function reportPoints(detail, extra = false) {
   .map(([label,key]) => [label,total(key)])];
 }
 
-function playerReport(p, detail, history, loading = false) {
+function playerReport(p, detail, marketHistory, weeks, loading = false) {
  const ff = ffFor({...p, sourceSlug: detail?.slug ?? p.sourceSlug, fullName: detail?.name ?? p.fullName});
- const hist = historyValues(history);
  const ffUrl = ffLink(ff);
  const bio = [
   ['Nacionalidad', statText(ff?.nationality ? countryNames.of(ff.nationality) : null)],
@@ -851,15 +1094,10 @@ function playerReport(p, detail, history, loading = false) {
   <div>
    ${reportSection('Rendimiento por jornada','chart',
     `<div class="report-inline"><span>${num(p.average)} de media</span>${formHtml(p)}</div>
-     ${chartHtml(
-      p.weeks.slice(-8).map(w => w.points), p.weeks.slice(-8).map(w => 'Jornada ' + w.week),
-      'Puntos por jornada', value => chartPointsFormat.format(value) + ' pts', p.weeks.slice(-8).map(w => 'J' + w.week))}`)}
+     ${chartPeriodPanel('points',weeks,loading)}`)}
    ${reportSection('Evolución del valor','trend',
     `<div class="report-inline"><span>Variación diaria</span><strong>${deltaMoney(ff?.dailyChange)}</strong></div>
-     ${hist.length ? chartHtml(
-        hist.map(r => r.value), hist.map(r => dated(r.date) ? chartDateFormat.format(new Date(r.date)) : 'Sin fecha'),
-        'Histórico de valor de mercado', value => chartMoneyFormat.format(value), hist.map(r => dated(r.date) ? chartShortDate.format(new Date(r.date)) : ''))
-      : `<p class="hint">${loading ? 'Cargando histórico…' : 'Sin histórico publicado.'}</p>`}`)}
+     ${chartPeriodPanel('market',marketHistory,loading)}`)}
    ${reportSection('Próximo partido','calendar',kvHtml([
     ['Rival', statText(ff?.rival ?? p.rival)], ['Jornada', (ff?.week ?? p.probWeek) || '—'],
     ['Local / visitante', matchVenue(p,ff)], ['Dificultad', statText(fixtureDifficulty(ff))],
@@ -878,8 +1116,8 @@ function playerReport(p, detail, history, loading = false) {
   : 'Sin ficha de FútbolFantasy para este jugador. Se muestran los datos de LALIGA disponibles.'}</div>`;
 }
 
-function squadView(){const lineup=bestLineup();const selected=new Set(lineup?.players.map(p=>p.id)||[]);const bench=S.roster.filter(p=>!selected.has(p.id));return `${squadStatsView(bench)}<div class="squad-layout"><section class="panel" id="squad-lineup"><div class="squad-controls"><label for="formation" class="muted">Formación</label><select id="formation"><option value="auto" ${S.formation==='auto'?'selected':''}>Mejor formación</option>${Object.keys(FORMATIONS).map(f=>`<option ${S.formation===f?'selected':''}>${f}</option>`).join('')}</select><span class="badge good">${lineup?num(lineup.score):'—'} pts est.</span></div>${pitchHtml(lineup)}<div class="panel-body"><label for="risk" class="hint">Criterio de forma <span style="float:right">${S.risk==='safe'?'75% temporada':S.risk==='upside'?'70% reciente':'60% temporada'}</span></label><select id="risk" style="width:100%;margin-top:7px;font-size:14px"><option value="balanced" ${S.risk==='balanced'?'selected':''}>Equilibrado · media + forma reciente</option><option value="safe" ${S.risk==='safe'?'selected':''}>Estable · prioriza la media de temporada</option><option value="upside" ${S.risk==='upside'?'selected':''}>Racha · prioriza las últimas cinco jornadas</option></select><div style="display:flex;gap:9px;margin-top:15px"><button class="btn primary full" data-action="save-lineup">${icon('save')} ${S.demo?'Guardar en esta demo':'Revisar y guardar once'}</button><button class="icon-btn" style="height:41px;width:43px;flex:none" data-action="export" aria-label="Exportar plan de alineación">${icon('download')}</button></div><p class="hint" style="margin-top:12px">${S.demo?'En la demo, el guardado permanece en este dispositivo.':'Verás los once jugadores y confirmarás antes de enviar cambios a LALIGA.'} La estrella señala la mayor proyección; no aplica un multiplicador de capitán.</p></div></section><section class="panel squad-bench"><div class="panel-head"><h2>Banquillo del once recomendado</h2></div>
-${bench.map(p=>`<div class="roster-row">${playerCell(p)}<div class="roster-points">${num(p.expected)}<small>pts est.</small></div></div>`).join('')||'<div class="empty-state"><p>Sin suplentes en el once recomendado.</p></div>'}
+function squadView(){const lineup=bestLineup();const bench=squadBench(lineup);return `${squadStatsView(bench)}<div class="squad-layout"><section class="panel" id="squad-lineup"><div class="squad-controls"><label for="formation" class="muted">Formación</label><select id="formation"><option value="auto" ${S.formation==='auto'?'selected':''}>Mejor formación</option>${Object.keys(FORMATIONS).map(f=>`<option ${S.formation===f?'selected':''}>${f}</option>`).join('')}</select><span class="badge good">${lineup?num(lineup.score):'—'} pts est.</span></div><p class="hint lineup-edit-note" id="lineup-edit-note" aria-live="polite">${e(lineupEditHint())}</p><div id="squad-pitch">${pitchHtml(lineup,true)}</div><div class="panel-body"><label for="risk" class="hint">Criterio de forma <span style="float:right">${S.risk==='safe'?'75% temporada':S.risk==='upside'?'70% reciente':'60% temporada'}</span></label><select id="risk" style="width:100%;margin-top:7px;font-size:14px"><option value="balanced" ${S.risk==='balanced'?'selected':''}>Equilibrado · media + forma reciente</option><option value="safe" ${S.risk==='safe'?'selected':''}>Estable · prioriza la media de temporada</option><option value="upside" ${S.risk==='upside'?'selected':''}>Racha · prioriza las últimas cinco jornadas</option></select><div style="display:flex;gap:9px;margin-top:15px"><button class="btn primary full" data-action="save-lineup">${icon('save')} ${S.demo?'Guardar en esta demo':'Revisar y guardar once'}</button><button class="icon-btn" style="height:41px;width:43px;flex:none" data-action="export" aria-label="Exportar plan de alineación">${icon('download')}</button></div><p class="hint" style="margin-top:12px">${S.demo?'En la demo, el guardado permanece en este dispositivo.':'Verás los once jugadores y confirmarás antes de enviar cambios a LALIGA.'} La estrella señala la mayor proyección; no aplica un multiplicador de capitán.</p></div></section><section class="panel squad-bench"><div class="panel-head"><h2>Banquillo del once</h2></div>
+<div id="squad-bench">${squadBenchContent(bench)}</div>
 </section></div>`}
 
 function profilePlayerActions(p) {
@@ -933,7 +1171,7 @@ async function openPlayer(id, teamId = '') {
  const dialog = overlay(modalHeader('Informe del jugador', back) + `<div class="report-body">
   ${playerIdentity(p)}<div data-player-summary>${playerSummary(p)}</div>
   ${profilePlayerActions(p)}
-  <div data-player-report>${playerReport(p, null, null, true)}</div>
+  <div data-player-report>${playerReport(p, null, [], pointsHistory(p), true)}</div>
   <details class="report-section price-calculator"><summary>Calculadora de puja</summary>
    <form id="bid-form" data-bid-player="${e(p.id)}"><label class="trade-input" for="bid-input">Importe simulado en euros
     <input id="bid-input" type="number" min="0" step="1" value="${p.price ?? p.value}" required>
@@ -941,10 +1179,14 @@ async function openPlayer(id, teamId = '') {
   </details>
  </div>`, true, 'Ficha de ' + p.name, true);
  const path = privateBase + '/player/' + encodeURIComponent(id);
- const [detail, history] = await Promise.allSettled([data(path), data(path + '/market-value'), loadFfTeam(ffTeamSlug(p))]);
+ const [detail, history] = await Promise.allSettled([data(path), marketHistoryFor(id), loadFfTeam(ffTeamSlug(p))]);
  if (!dialog.isConnected) return;
  $('[data-player-summary]', dialog).innerHTML = playerSummary(p);
- $('[data-player-report]', dialog).innerHTML = playerReport(p, detail.value, history.value);
+ const weeks = pointsHistory(p,detail.value);
+ const marketHistory = history.value ?? [];
+ $('[data-player-report]', dialog).innerHTML = playerReport(p,detail.value,marketHistory,weeks);
+ setupChartPeriod($('[data-period-chart="points"]',dialog),'points',weeks,p.teamId);
+ setupChartPeriod($('[data-period-chart="market"]',dialog),'market',marketHistory);
 }
 
 function demoRivalRoster(id) {
@@ -1084,6 +1326,7 @@ function overlay(html,center=false,label='Detalle de análisis',wide=false){
 }
 function closeOverlay(){
  tradeDraft=null;
+ lineupReview=null;
  $('#overlay-root').replaceChildren();
  document.body.style.overflow='';
  focusBefore?.focus?.();
@@ -1121,15 +1364,19 @@ function chartHtml(values, labels, title, format, axisLabels = labels) {
     <polygon points="${line} ${last.x},${bottom} ${first.x},${bottom}" class="chart-area"/>
     <polyline points="${line}" class="chart-line"/>
     <line class="chart-guide" y1="10" y2="${bottom}" visibility="hidden"/>
-    ${points.map(({x,y,label,value}) => `<circle class="chart-point" cx="${x}" cy="${y}" r="4"
+    ${points.map(({x,y,label,value}) => `<circle class="chart-point" cx="${x}" cy="${y}" r="${points.length>80?1:points.length>36?2:4}"
       data-label="${e(label)}" data-value="${e(value)}"/>`).join('')}
    </svg>
    <input class="chart-index" type="range" min="0" max="${points.length - 1}" value="${points.length - 1}"
      aria-label="${e(title)}" aria-valuetext="${e(last.label + ', ' + last.value)}">
    <div class="chart-tooltip" aria-hidden="true" hidden><span></span><strong></strong></div>
   </div>
-  <div class="chart-labels" aria-hidden="true">${axisLabels.map((label,index) =>
-   `<span style="left:${points[index].x / chartWidth * 100}%">${e(label)}</span>`).join('')}</div>
+  <div class="chart-labels" aria-hidden="true">${axisLabels.map((label,index) => {
+   const stride = Math.ceil(axisLabels.length / 6);
+   if (stride > 1 && index !== axisLabels.length - 1 &&
+     (index % stride !== 0 || axisLabels.length - 1 - index < stride / 2)) return '';
+   return `<span style="left:${points[index].x / chartWidth * 100}%">${e(label)}</span>`;
+  }).join('')}</div>
  </div>`;
 }
 
@@ -1211,25 +1458,390 @@ document.addEventListener('input', event => {
  if (event.target.matches('.chart-index')) inspectChart(event.target.parentElement, Number(event.target.value));
 });
 
-function historyValues(raw){const rows=collection(raw,['marketValues','marketValue','values','data','history','items','content']);return rows.map(r=>({value:numberOrNull(r.marketValue??r.value??r.price),date:r.date??r.timestamp??r.day})).filter(r=>r.value!==null).sort((a,b)=>(Date.parse(a.date)||0)-(Date.parse(b.date)||0)).slice(-8)}
+const madridDay = new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'});
+const monthLabel = new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',month:'long',year:'numeric'});
+const chartDates = new Map();
+
+function chartDay(date) {
+ if (!dated(date)) return '';
+ return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : madridDay.format(new Date(date));
+}
+
+function periodChart(rows, kind) {
+ const money = kind === 'market';
+ if (!rows.length) return '<p class="hint">Sin datos para el periodo seleccionado.</p>';
+ const dates = rows.map(row => row.day ? new Date(row.day + 'T12:00:00Z') : null);
+ return chartHtml(
+  rows.map(row => row.value),
+  rows.map((row,index) => {
+   const date = dates[index] ? chartDateFormat.format(dates[index]) : 'Sin fecha';
+   return money ? date : 'Jornada ' + row.week + (dates[index] ? ' · ' + date : '');
+  }),
+  money ? 'Histórico de valor de mercado' : 'Puntos por jornada',
+  value => money ? chartMoneyFormat.format(value) : chartPointsFormat.format(value) + ' pts',
+  rows.map((row,index) => money ? (dates[index] ? chartShortDate.format(dates[index]) : '') : 'J' + row.week),
+ );
+}
+
+function chartPeriodPanel(kind, rows, loading) {
+ if (loading) return kind === 'points' && rows.length ? periodChart(rows.slice(-8),kind) : '<p class="hint">Cargando histórico…</p>';
+ if (!rows.length) return '<p class="hint">Sin histórico publicado.</p>';
+ const name = kind === 'points' ? 'jornadas' : 'valor de mercado';
+ const periods = [
+  ['recent',kind === 'points' ? 'Últimas 8 jornadas' : 'Últimos 7 días'],
+  ['30','Últimos 30 días'],['90','Últimos 90 días'],['all','Todo el histórico'],
+  ['month','Mes concreto'],['day','Día concreto'],['range','Rango de fechas'],
+  ...(kind === 'points' ? [['weeks','Rango de jornadas']] : []),
+ ];
+ return `<div data-period-chart="${kind}">
+  <div class="chart-filters">
+   <label>Periodo<select aria-label="Periodo de ${name}" data-chart-period>
+    ${periods.map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}
+   </select></label>
+   <div class="chart-filter-fields" data-chart-fields></div>
+  </div>
+  <div data-chart-result></div>
+  <p class="hint chart-filter-note" data-chart-note aria-live="polite"></p>
+ </div>`;
+}
+
+function pointsHistory(player, detail) {
+ const weeks = new Map(player.weeks.map(w => [w.week,{week:w.week,value:w.points,day:chartDay(w.date)}]));
+ for (const row of collection(detail?.playerStats)) {
+  const week = numberOrNull(row.weekNumber);
+  const value = numberOrNull(row.totalPoints);
+  if (!Number.isInteger(week) || value === null) continue;
+  weeks.set(week,{week,value,day:chartDay(row.matchDate ?? row.date) || weeks.get(week)?.day || ''});
+ }
+ return [...weeks.values()].sort((a,b) => a.week-b.week);
+}
+
+function calendarForChart(week) {
+ if (!chartDates.has(week)) {
+  const games = data(privateBase + '/calendar','&weekNumber=' + week).then(raw => collection(raw)).catch(() => {
+   chartDates.delete(week);
+   return [];
+  });
+  chartDates.set(week,games);
+ }
+ return chartDates.get(week);
+}
+
+async function datePoints(rows, teamId) {
+ const datedRows = [];
+ for (let start=0; start<rows.length; start+=5) {
+  const batch = await Promise.all(rows.slice(start,start+5).map(async row => {
+   if (row.day || !teamId) return row;
+   const fixtures = await calendarForChart(row.week);
+   const matches = fixtures.filter(game => [String(game.localId),String(game.visitorId)].includes(teamId));
+   const match = matches.length === 1 ? matches[0] : null;
+   return {...row,day:chartDay(match?.matchDate ?? match?.date)};
+  }));
+  datedRows.push(...batch);
+ }
+ return datedRows;
+}
+
+function sortedDays(rows) {
+ return [...new Set(rows.map(row => row.day).filter(Boolean))].sort();
+}
+
+function chartPeriodFields(mode, kind, rows) {
+ const days = sortedDays(rows);
+ const datedForm = days.length > 0;
+ if (mode === 'month' && datedForm) {
+  const months = [...new Set(days.map(day => day.slice(0,7)))].reverse();
+  return `<label>Mes<select data-chart-month>${months.map(month =>
+   `<option value="${e(month)}">${e(monthLabel.format(new Date(month + '-01T12:00:00Z')))}</option>`).join('')}</select></label>`;
+ }
+ if (mode === 'day' && datedForm) return `<label>Día<input type="date" data-chart-day value="${days.at(-1)}"></label>`;
+ if (mode === 'range' && datedForm) return `<label>Desde<input type="date" data-chart-from value="${days[0]}"></label>
+  <label>Hasta<input type="date" data-chart-to value="${days.at(-1)}"></label>`;
+ if (mode === 'weeks' && kind === 'points') {
+  const options = selected => rows.map(row => `<option value="${row.week}" ${row.week===selected?'selected':''}>Jornada ${row.week}</option>`).join('');
+  return `<label>Desde<select data-chart-from>${options(rows[0].week)}</select></label>
+   <label>Hasta<select data-chart-to>${options(rows.at(-1).week)}</select></label>`;
+ }
+ return '';
+}
+
+function dateWindowEnd(day, count) {
+ const start = new Date(day + 'T12:00:00Z');
+ start.setUTCDate(start.getUTCDate() - count + 1);
+ return start.toISOString().slice(0,10);
+}
+
+function filterChartPeriod(panel, kind, rows, mode) {
+ const value = key => panel.querySelector('[data-chart-' + key + ']')?.value;
+ const days = sortedDays(rows);
+ if (mode === 'all') return rows;
+ if (mode === 'recent' && kind === 'points') return rows.slice(-8);
+ if (mode === 'weeks') return rows.filter(row => row.week >= Number(value('from')) && row.week <= Number(value('to')));
+ if (mode === 'month') return rows.filter(row => row.day && row.day.startsWith(value('month')));
+ if (mode === 'day') return rows.filter(row => row.day && row.day === value('day'));
+ if (mode === 'range') return rows.filter(row => row.day && value('from') && value('to') && row.day >= value('from') && row.day <= value('to'));
+ // Include the date of the last record, so these periods also work when a data source is behind.
+ if (!days.length) return mode === 'recent' ? rows.slice(-7) : [];
+ const limit = dateWindowEnd(days.at(-1), mode === 'recent' ? 7 : Number(mode));
+ return rows.filter(row => row.day && row.day >= limit);
+}
+
+function setupChartPeriod(panel, kind, original, teamId) {
+ if (!panel) return;
+ const period = panel.querySelector('[data-chart-period]');
+ const fields = panel.querySelector('[data-chart-fields]');
+ const result = panel.querySelector('[data-chart-result]');
+ const note = panel.querySelector('[data-chart-note]');
+ let rows = original;
+ let pendingDates = null;
+ let version = 0;
+
+ function render() {
+  const filtered = filterChartPeriod(panel,kind,rows,period.value);
+  result.innerHTML = periodChart(filtered,kind);
+  const timeFilter = !['all','recent','weeks'].includes(period.value);
+  const from = fields.querySelector('[data-chart-from]')?.value;
+  const to = fields.querySelector('[data-chart-to]')?.value;
+  const invalid = from && to && (period.value === 'weeks' ? Number(from)>Number(to) : from>to);
+  note.textContent = invalid ? 'La fecha o jornada inicial debe ser anterior o igual a la final.'
+   : timeFilter && kind==='points' && rows.some(row=>row.day)
+    ? 'Fechas según el calendario del club actual.' : '';
+ }
+
+ async function changePeriod() {
+  const change = ++version;
+  const needsCalendar = kind === 'points' && !['all','recent','weeks'].includes(period.value);
+  if (needsCalendar && original.some(row=>!row.day)) {
+   if (!pendingDates) pendingDates = datePoints(original,teamId);
+   fields.replaceChildren();
+   result.innerHTML = '<p class="hint">Consultando fechas de las jornadas…</p>';
+   note.textContent = '';
+   const datedRows = await pendingDates;
+   if (change !== version || !panel.isConnected) return;
+   rows = datedRows;
+  }
+  fields.innerHTML = chartPeriodFields(period.value,kind,rows);
+  render();
+ }
+
+ panel.addEventListener('change',event => {
+  if (event.target === period) void changePeriod();
+  else render();
+ });
+ render();
+}
+
+function historyValues(raw) {
+ const rows = collection(raw,['marketValues','marketValue','values','data','history','items','content']);
+ return rows.map(row => ({value:numberOrNull(row.marketValue ?? row.value ?? row.price),day:chartDay(row.date ?? row.timestamp ?? row.day)}))
+  .filter(row => row.value !== null).sort((a,b) => a.day.localeCompare(b.day));
+}
+
 function comparePlayers(){const a=dataPlayer(S.compareA),b=dataPlayer(S.compareB);if(!a||!b)return toast('Elige dos jugadores para comparar.',true);if(a.id===b.id)return toast('Elige dos jugadores diferentes.',true);const row=(label,av,bv,fmt=num,invert=false)=>{const avn=Number(av),bvn=Number(bv);const valid=av!==null&&bv!==null;return `<div class="compare-row"><span class="${valid&&(invert?avn<bvn:avn>bvn)?'win':''}">${fmt(av)}</span><span>${label}</span><span class="${valid&&(invert?bvn<avn:bvn>avn)?'win':''}">${fmt(bv)}</span></div>`};overlay(`<div class="modal-top"><h2>Dos opciones. Más contexto.</h2><button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div><div class="compare-grid">${[a,b].map(p=>`<div class="compare-player">${p.image?`<img src="${e(p.image)}" alt="">`:''}<h3>${e(p.name)}</h3><p>${e(p.team)} · ${POS[p.position]}</p></div>`).join('')}</div><div style="margin-top:22px">${row('Puntos totales',a.points,b.points,v=>num(v,0))}${row('Media por partido',a.average,b.average)}${row('Últimas cinco',a.recent,b.recent)}${row('Probabilidad titular',a.prob,b.prob,v=>v===null?'—':num(v,0)+'%')}${row('Proyección',a.expected,b.expected)}${row('Valor de mercado',a.value,b.value,formatMoney,true)}${row('Puntos / M €',a.efficiency,b.efficiency,v=>num(v,2))}</div><div class="model-note">${a.position!==b.position?'<strong>Posiciones diferentes.</strong> La comparación no implica que puedas intercambiarlos en un mismo puesto. ':''}La opción más barata no siempre produce la mejor mejora deportiva. Valora tu presupuesto y el riesgo de titularidad.</div>`,true)}
 function showMatch(id){const match=S.calendar.find(m=>String(m.id)===id);if(!match)return;const players=S.players.filter(p=>[String(match.localId),String(match.visitorId)].includes(p.teamId)).sort((a,b)=>(b.prob??-1)-(a.prob??-1)||b.average-a.average);overlay(heading('Jugadores del partido')+`<div class="drawer-body"><p class="hint" style="margin-bottom:16px">${e(dateText(match.matchDate||match.date))}. Probabilidades publicadas para J${Object.values(S.probabilities).find(p=>p.w)?.w||'—'}.</p>${players.map(p=>`<div class="roster-row">${playerCell(p)}<div class="roster-points">${probHtml(p)}<small>${num(p.expected)} pts est.</small></div></div>`).join('')}</div>`)}
+let lineupReview=null;
+const lineupGroups = ['goalkeeper','defender','midfield','striker'];
+const lineupKey = 'application/x-laguia-lineup';
+
+function lineupFromIds(formation, ids) {
+ if (!FORMATIONS[formation] || ids.length!==11 || new Set(ids).size!==11) return null;
+ const players = ids.map(id=>S.roster.find(p=>p.id===id));
+ if (players.some(p=>!p)) return null;
+ const counts = [1,...FORMATIONS[formation]];
+ if (counts.some((count,index)=>players.filter(p=>p.position===index+1).length!==count)) return null;
+ const estimated = players.map(p=>({...p,expected:estimate(p,S.risk)}));
+ const score = Math.round(estimated.reduce((sum,p)=>sum+(p.expected??0),0)*10)/10;
+ return {formation,players:estimated,score,incomplete:estimated.some(p=>p.expected===null)};
+}
+
+function savedLineupFromApi(raw) {
+ const shape = raw?.formation;
+ if (!shape || typeof shape!=='object') return null;
+ const arrangement = shape.tacticalFormation ?? shape.tactical_formation;
+ const formation = Array.isArray(arrangement) ? arrangement.join('-') : arrangement;
+ const ids = lineupGroups.flatMap(group=>{
+  const slots = Array.isArray(shape[group])?shape[group]:[shape[group]];
+  return slots.filter(Boolean).map(slot=>{
+   const slotId = String(slot.playerTeamId ?? slot.id ?? slot);
+   const masterId = String(slot.playerMaster?.id ?? '');
+   return S.roster.find(p=>p.privateId===slotId || p.id===masterId)?.id;
+  });
+ });
+ return lineupFromIds(formation,ids);
+}
+
+const demoLineupKey = ()=>'lg-v2-demo-lineup:' + S.league?.id;
+
+function lineupEditHint() {
+ if(S.lineupSaving) return 'Guardando el once…';
+ if(S.lineupPick) return 'Elige un titular de la misma posición para colocar a ' +
+  (S.roster.find(p=>p.id===S.lineupPick)?.name ?? 'este jugador') + '.';
+ if(S.lineupDirty) return 'Tienes cambios pendientes de guardar.';
+ if(S.savedLineup) return 'Once guardado. Arrastra un jugador sobre el titular al que sustituye.';
+ return 'Arrastra un jugador sobre un titular de la misma posición o usa «Colocar».';
+}
+
+function paintLineupSelection() {
+ const picked = S.roster.find(p=>p.id===S.lineupPick);
+ for(const slot of $$('[data-lineup-slot]')) slot.classList.toggle('lineup-target',
+  !!picked && picked.id!==slot.dataset.lineupSlot && String(picked.position)===slot.dataset.lineupPosition);
+ for(const button of $$('[data-lineup-pick]')) button.setAttribute('aria-pressed', String(button.dataset.lineupPick===S.lineupPick));
+ const note = $('#lineup-edit-note');
+ if(note) note.textContent = lineupEditHint();
+}
+
+function pickLineupPlayer(id) {
+ if(!bestLineup() || S.lineupSaving) return;
+ S.lineupPick = S.lineupPick===id ? null : id;
+ paintLineupSelection();
+ if(S.lineupPick) $('.lineup-target','#squad-pitch')?.focus();
+}
+
+function moveLineupPlayer(from, to) {
+ const lineup = bestLineup();
+ if(!from || from===to || !lineup || S.lineupSaving) return;
+ const incoming = S.roster.find(p=>p.id===from);
+ const outgoing = lineup.players.find(p=>p.id===to);
+ if(!incoming || !outgoing) return;
+ if(incoming.position!==outgoing.position) return toast('Elige un titular de la misma posición.',true);
+ const swap = lineup.players.some(p=>p.id===from);
+ if(!swap && S.locked.includes(to)) return toast('Desfija a ' + outgoing.name + ' para sustituirlo.',true);
+ const ids = lineup.players.map(p=>p.id===to?from:swap&&p.id===from?to:p.id);
+ const changed = lineupFromIds(lineup.formation,ids);
+ if(!changed) return;
+ S.lineup = changed;
+ S.lineupDirty = true;
+ S.lineupPick = null;
+ refreshSquadMetrics();
+ $('[data-lineup-slot="' + CSS.escape(from) + '"]','#squad-pitch')?.focus({preventScroll:true});
+ toast(swap?'Posiciones intercambiadas.':incoming.name + ' entra por ' + outgoing.name + '.');
+}
+
+function lineupRecommendation(next, index, current) {
+ const names = lineupGroups.map((group,slot) => {
+  const starters = next.players.filter(p=>p.position===slot+1).map(p=>e(p.name)).join(', ');
+  return `<div><dt>${POS[slot+1]}</dt><dd>${starters}</dd></div>`;
+ }).join('');
+ const uncertain = next.players.filter(p=>p.expected===null || p.prob<60 || p.status==='injured' || p.status==='suspended');
+ const substitutes = squadBench(next).slice().sort((a,b)=>(estimate(b,S.risk)??-1)-(estimate(a,S.risk)??-1)).slice(0,3);
+ const gain = current && !next.incomplete && !current.incomplete ? Math.round((next.score-current.score)*10)/10 : null;
+ return `<details class="report-section lineup-option" ${index===0?'open':''}>
+  <summary><strong>${index===0?'Mejor once':'Alternativa '+index} · ${next.formation}</strong>
+   <span>${num(next.score)} pts est.${next.incomplete?' · parcial':''}</span></summary>
+  <dl class="lineup-summary">${names}</dl>
+  ${gain ? `<p class="hint">${gain>0?'+':''}${num(gain)} pts estimados frente al once que estás editando.</p>` : ''}
+  ${uncertain.length ? `<p class="hint amber">Revisa titularidad o disponibilidad de ${uncertain.map(p=>e(p.name)).join(', ')}.</p>` : ''}
+  ${substitutes.length ? `<p class="hint">Alternativas en el banquillo · ${substitutes.map(p=>e(p.name)).join(', ')}.</p>` : ''}
+  <button class="btn ${index===0?'primary':''}" data-use-formation="${next.formation}">Aplicar al editor</button>
+ </details>`;
+}
+
+function showLineupRecommendations() {
+ const choices = Object.keys(FORMATIONS).map(formation=>optimize(S.roster,formation,S.risk,S.locked))
+  .filter(Boolean).sort((a,b)=>b.score-a.score || Number(a.incomplete)-Number(b.incomplete)).slice(0,3);
+ if(!choices.length) return toast('Tu plantilla y los jugadores fijados no permiten completar un once.',true);
+ const current = bestLineup();
+ overlay(modalHeader('Once ideal para tu plantilla') + `<div class="report-body lineup-options">
+  <p class="hint">Compara formaciones usando tu plantilla, los jugadores fijados y la titularidad prevista.</p>
+  ${choices.map((choice,index)=>lineupRecommendation(choice,index,current)).join('')}
+ </div>`,true,'Once ideal para tu plantilla',true);
+}
+
+function applyLineupRecommendation(formation) {
+ const lineup = optimize(S.roster,formation,S.risk,S.locked);
+ if(!lineup) return;
+ S.lineup = lineup;
+ S.formation = formation;
+ S.lineupDirty = true;
+ S.lineupPick = null;
+ closeOverlay();
+ render();
+ $('#squad-lineup')?.scrollIntoView({block:'start'});
+}
+
+let draggingLineupPlayer = null;
+document.addEventListener('dragstart',event=>{
+ const source = event.target.closest('[data-lineup-drag]');
+ if(!source || !event.dataTransfer || S.lineupSaving) return;
+ draggingLineupPlayer = source.dataset.lineupDrag;
+ event.dataTransfer.setData(lineupKey,draggingLineupPlayer);
+ event.dataTransfer.effectAllowed = 'move';
+});
+document.addEventListener('dragover',event=>{
+ const slot = event.target.closest('[data-lineup-slot]');
+ if(!slot || !draggingLineupPlayer) return;
+ event.preventDefault();
+ event.dataTransfer.dropEffect = 'move';
+ slot.classList.add('lineup-over');
+});
+document.addEventListener('dragleave',event=>{
+ const slot=event.target.closest('[data-lineup-slot]');
+ if(slot && !slot.contains(event.relatedTarget)) slot.classList.remove('lineup-over');
+});
+document.addEventListener('drop',event=>{
+ const slot = event.target.closest('[data-lineup-slot]');
+ const from=event.dataTransfer?.getData(lineupKey);
+ if(!slot || !from || from!==draggingLineupPlayer) return;
+ event.preventDefault();
+ slot.classList.remove('lineup-over');
+ moveLineupPlayer(from,slot.dataset.lineupSlot);
+ draggingLineupPlayer=null;
+});
+document.addEventListener('dragend',()=>{
+ draggingLineupPlayer=null;
+ for(const slot of $$('.lineup-over')) slot.classList.remove('lineup-over');
+});
+
 function lineupPayload(){const lineup=bestLineup();if(!lineup||lineup.players.length!==11)throw Error('Completa un once válido antes de guardar.');const groups={goalkeeper:[],defender:[],midfield:[],striker:[]};for(const p of lineup.players){if(!S.roster.some(r=>r.id===p.id))throw Error('El jugador no pertenece a tu plantilla.');const privateId=p.privateId;if(!S.demo&&!privateId)throw Error('Falta el identificador de una ficha de tu equipo. Actualiza la plantilla.');groups[{1:'goalkeeper',2:'defender',3:'midfield',4:'striker'}[p.position]].push(S.demo?p.id:privateId)}return {...groups,goalkeeper:groups.goalkeeper[0],tactical_formation:FORMATIONS[lineup.formation]}}
-function reviewLineup(){try{const payload=lineupPayload(),lineup=bestLineup();if(S.demo){saveLocal('lg-v2-demo-lineup',{ids:lineup.players.map(p=>p.id),formation:lineup.formation});return toast('Once guardado en este dispositivo para la demo.')}overlay(`<div class="modal-top"><h2>Confirma tu alineación</h2><button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div><p class="hint">Liga: ${e(S.league.name)} · Formación ${lineup.formation}. Esto sustituirá tu once en LALIGA Fantasy.</p><div style="margin:20px 0">${lineup.players.map(p=>`<div class="roster-row"><span class="pos p${p.position}">${POS[p.position]}</span><strong style="font-size:15px">${e(p.name)}</strong><span style="margin-left:auto">${num(p.expected)} pts est.</span></div>`).join('')}</div><div class="model-note">El servidor verificará que este es tu equipo y que los once jugadores siguen en tu plantilla. LALIGA puede rechazar cambios si la jornada está cerrada.</div><div id="save-lineup-error" role="alert"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn" data-action="close-overlay">Volver</button><button class="btn primary" data-action="confirm-lineup">Confirmar y enviar a LALIGA</button></div>`,true)}catch(error){toast(error.message,true)}}
-async function saveLineup(button){button.disabled=true;button.textContent='Verificando y guardando…';try{await api('/api/data?path='+encodeURIComponent(privateBase+'/teams/'+S.teamId+'/lineup'),{method:'PUT',body:JSON.stringify(lineupPayload())});closeOverlay();toast('LALIGA ha aceptado tu alineación.')}catch(error){$('#save-lineup-error').innerHTML=`<div class="error-inline" style="margin-bottom:15px">${e(error.message)}</div>`;button.disabled=false;button.textContent='Confirmar y enviar a LALIGA'}}
+function reviewLineup(){try{const payload=lineupPayload(),lineup=bestLineup();if(S.demo){saveLocal(demoLineupKey(),{ids:lineup.players.map(p=>p.id),formation:lineup.formation});S.savedLineup=lineup;S.lineupDirty=false;paintLineupSelection();return toast('Once guardado en este dispositivo para la demo.')}lineupReview={league:S.league,teamId:S.teamId,lineup,payload};overlay(`<div class="modal-top"><h2>Confirma tu alineación</h2><button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div><p class="hint">Liga: ${e(S.league.name)} · Formación ${lineup.formation}. Esto sustituirá tu once en LALIGA Fantasy.</p><div style="margin:20px 0">${lineup.players.map(p=>`<div class="roster-row"><span class="pos p${p.position}">${POS[p.position]}</span><strong style="font-size:15px">${e(p.name)}</strong><span style="margin-left:auto">${num(p.expected)} pts est.</span></div>`).join('')}</div><div class="model-note">El servidor verificará que este es tu equipo y que los once jugadores siguen en tu plantilla. LALIGA puede rechazar cambios si la jornada está cerrada.</div><div id="save-lineup-error" role="alert"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn" data-action="close-overlay">Volver</button><button class="btn primary" data-action="confirm-lineup">Confirmar y enviar a LALIGA</button></div>`,true)}catch(error){toast(error.message,true)}}
+async function saveLineup(button) {
+ if(S.lineupSaving) return;
+ const review=lineupReview;
+ if(!review || !sameLeague(review.league) || S.teamId!==review.teamId) return;
+ const {league,lineup,payload}=review;
+ try{
+  if(JSON.stringify(lineupPayload())!==JSON.stringify(payload))throw Error('El once ha cambiado. Vuelve a revisarlo antes de guardar.');
+ }catch(error){
+  closeOverlay();
+  return toast(error.message,true);
+ }
+ S.lineupSaving=true;
+ button.disabled=true;
+ button.textContent='Guardando…';
+ try{
+  await api('/api/data?path='+encodeURIComponent(privateBase+'/teams/'+S.teamId+'/lineup')+
+   '&leagueId='+encodeURIComponent(league.id),{method:'PUT',body:JSON.stringify(payload)});
+  if(!sameLeague(league)) return;
+  S.savedLineup=lineup;
+  S.lineupDirty=false;
+  closeOverlay();
+  paintLineupSelection();
+  toast('LALIGA ha aceptado tu alineación.');
+ }catch(error){
+  const message=$('#save-lineup-error');
+  if(message)message.innerHTML=`<div class="error-inline">${e(error.message)}</div>`;
+  button.disabled=false;
+  button.textContent='Confirmar y enviar a LALIGA';
+ }finally{
+  if(sameLeague(league)){S.lineupSaving=false;paintLineupSelection()}
+ }
+}
 function download(name,content,type='text/plain;charset=utf-8'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function planText(){const lineup=bestLineup();const rec=recommendations(S.roster,available(),S.balance??Infinity).filter(r=>r.gain>0).slice(0,3);return `LAGUÍA · MI PLAN DE JORNADA\n${S.demo?'DEMOSTRACIÓN · Datos privados de ejemplo\n':''}Liga: ${S.league?.name||'Sin seleccionar'}\nJornada: ${S.week.weekNumber||'—'}\nGenerado: ${new Date().toLocaleString('es-ES',{timeZone:'Europe/Madrid'})} (Madrid)\nSaldo: ${formatMoney(S.balance,false)}\n\nMI ONCE RECOMENDADO\n${lineup?'Formación '+lineup.formation+' · '+num(lineup.score)+' puntos estimados\n'+lineup.players.map(p=>`${POS[p.position]} · ${p.name} · ${num(p.expected)} pts est. · ${p.prob===null?'sin probabilidad':p.prob+'% titular'}`).join('\n'):'Faltan jugadores para un once válido.'}\n\nRIESGOS Y RECORDATORIOS\n${alertItems().map(a=>a.title+'\n'+a.text).join('\n\n')||'Sin alertas detectadas.'}\n\nFICHAJES A VALORAR\n${rec.map(r=>`${r.player.name} · ${formatMoney(r.player.price??r.player.value)} · +${num(r.gain)} pts estimados frente a ${r.replace?.name||'un hueco en la plantilla'}`).join('\n')||'Sin mejoras claras dentro de tu saldo.'}\n\nModelo: media temporada 60%, últimas cinco jornadas 40%, ajustado por probabilidad de titularidad. Las proyecciones no garantizan resultados.\nFuentes: LALIGA Fantasy y FútbolFantasy.\nConsulta pública: ${S.dataAt||'sin fecha'}. Probabilidades: ${S.ffUpdated||'sin fecha'}.\n`}
 function exportPlan(){download('laguia-plan-jornada-'+(S.week.weekNumber||'actual')+'.txt',planText());toast('Tu plan de jornada está descargado.')}
 function icsDate(d){return new Date(d).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'')}
 function exportCalendar(){if(!S.calendar.length)return toast('Carga el calendario antes de exportarlo.',true);const escapeIcs=s=>String(s).replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');const events=S.calendar.map(m=>{const d=m.matchDate||m.date,home=S.teams.find(t=>String(t.id)===String(m.localId)),away=S.teams.find(t=>String(t.id)===String(m.visitorId));return ['BEGIN:VEVENT','UID:laguia-'+m.id+'@fantasy-v2','DTSTAMP:'+icsDate(new Date()),'DTSTART:'+icsDate(d),'DTEND:'+icsDate(new Date(new Date(d).getTime()+7200000)),'SUMMARY:'+escapeIcs((home?.name||m.localId)+' vs '+(away?.name||m.visitorId)),'DESCRIPTION:'+escapeIcs('Jornada '+(S.calendarWeek||S.week.weekNumber)+' · LALIGA Fantasy. Horario sujeto a cambios.'),'END:VEVENT'].join('\r\n')});download('laguia-jornada-'+(S.calendarWeek||S.week.weekNumber)+'.ics',['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//LAGUIA//Fantasy V2//ES',...events,'END:VCALENDAR'].join('\r\n'),'text/calendar;charset=utf-8');toast('Calendario exportado.')}
 function updateCountdown(){const el=$('#countdown');if(!el)return;const target=new Date(S.week.openingWeekDate).getTime(),left=Math.max(0,target-Date.now());if(!Number.isFinite(target)){el.textContent='Sin fecha';return}if(left===0){el.textContent=S.week.isLive?'EN JUEGO':'EN CURSO';return}const days=Math.floor(left/86400000),hours=Math.floor(left%86400000/3600000),mins=Math.floor(left%3600000/60000);el.textContent=[days,hours,mins].map(n=>String(n).padStart(2,'0')).join(' : ')}
-function navigate(tab){S.tab=tab;S.page=0;render();window.scrollTo(0,0);if(tab==='calendar'&&(!S.calendar.length||S.calendarWeek!==S.week.weekNumber))loadCalendar();if(tab==='squad')void loadSquadStats();}
+function navigate(tab){S.tab=tab;S.page=0;render();window.scrollTo(0,0);if(tab==='calendar'&&(!S.calendar.length||S.calendarWeek!==S.week.weekNumber))loadCalendar();if(tab==='squad'){void loadSquadStats();void loadSquadMarketHistory()}}
 async function refreshAll(){toast('Actualizando los datos de tu liga…');await loadPublic();if(!S.demo)await loadPrivateLeague();else {seedDemo();render();if(S.tab==='squad')void loadSquadStats()}if(S.tab==='calendar')await loadCalendar();toast(S.errors.length?'Algunas fuentes no se han actualizado. Se indica en la página.':'Datos actualizados.',!!S.errors.length)}
 function watchPlayer(id,button){if(S.watch.includes(id))S.watch=S.watch.filter(v=>v!==id);else S.watch.push(id);saveLocal('lg-v2-watch',S.watch);if(button.hasAttribute('data-watch-drawer')){button.innerHTML=icon(S.watch.includes(id)?'check':'star')+' '+(S.watch.includes(id)?'En tu seguimiento':'Añadir a seguimiento');button.classList.toggle('primary',!S.watch.includes(id));button.classList.toggle('subtle',S.watch.includes(id))}else render();toast(S.watch.includes(id)?'Jugador añadido a tu seguimiento.':'Jugador eliminado de tu seguimiento.')}
 document.addEventListener('click',async event=>{
  if(event.target.closest('[data-official-sync]')) officialSync = S.league;
  const button=event.target.closest('button,a[data-action]');if(!button){if(event.target.matches('[data-scrim]'))closeOverlay();return}if(button.disabled)return;
- if(button.dataset.tab){closeOverlay();navigate(button.dataset.tab);return}if(button.dataset.league){enterLeague(button.dataset.league);return}if(button.dataset.player){openPlayer(button.dataset.player,button.dataset.playerTeam);return}if(button.dataset.watch){watchPlayer(button.dataset.watch,button);return}if(button.dataset.lock){const id=button.dataset.lock;const next=S.locked.includes(id)?S.locked.filter(x=>x!==id):[...S.locked,id];const result=optimize(S.roster,S.formation,S.risk,next);if(!result)return toast('Esa combinación no permite un once válido. Desfija otro jugador o cambia la formación.',true);S.locked=next;S.lineup=result;render();return}if(button.dataset.position){S.position=button.dataset.position;S.page=0;render();return}if(button.dataset.marketTab){S.marketTab=button.dataset.marketTab;S.page=0;S.search='';render();return}if(button.dataset.prompt){answerQuestion(button.dataset.prompt);return}if(button.dataset.rival){openRival(button.dataset.rival);return}if(button.dataset.match){showMatch(button.dataset.match);return}if(button.dataset.dismiss){S.dismissed.push(button.dataset.dismiss);saveLocal('lg-v2-dismissed',S.dismissed);render();return}if(button.dataset.setting){S.settings[button.dataset.setting]=!S.settings[button.dataset.setting];saveLocal('lg-v2-settings',S.settings);render();return}
+ if(button.dataset.tab){closeOverlay();navigate(button.dataset.tab);return}if(button.dataset.league){enterLeague(button.dataset.league);return}if(button.dataset.lineupPick){pickLineupPlayer(button.dataset.lineupPick);return}
+ if(button.dataset.useFormation){applyLineupRecommendation(button.dataset.useFormation);return}
+ if(button.dataset.lineupSlot&&S.lineupPick){moveLineupPlayer(S.lineupPick,button.dataset.lineupSlot);return}
+ if(button.dataset.player){openPlayer(button.dataset.player,button.dataset.playerTeam);return}if(button.dataset.watch){watchPlayer(button.dataset.watch,button);return}if(button.dataset.lock){const id=button.dataset.lock;const next=S.locked.includes(id)?S.locked.filter(x=>x!==id):[...S.locked,id];const result=optimize(S.roster,S.formation,S.risk,next);if(!result)return toast('Esa combinación no permite un once válido. Desfija otro jugador o cambia la formación.',true);S.locked=next;S.lineup=result;S.lineupDirty=true;S.lineupPick=null;render();return}if(button.dataset.position){S.position=button.dataset.position;S.page=0;render();return}if(button.dataset.marketTab){S.marketTab=button.dataset.marketTab;if(S.marketTab!=='league')S.sort=({priceAsc:'cheap',priceDesc:'value'})[S.sort]||S.sort;S.page=0;S.search='';render();return}if(button.dataset.prompt){answerQuestion(button.dataset.prompt);return}if(button.dataset.rival){openRival(button.dataset.rival);return}if(button.dataset.match){showMatch(button.dataset.match);return}if(button.dataset.dismiss){S.dismissed.push(button.dataset.dismiss);saveLocal('lg-v2-dismissed',S.dismissed);render();return}if(button.dataset.setting){S.settings[button.dataset.setting]=!S.settings[button.dataset.setting];saveLocal('lg-v2-settings',S.settings);render();return}
  if(button.dataset.tradeListing){openTrade({listingId:button.dataset.tradeListing});return}
  if(button.dataset.tradeClause){openTrade({slotId:button.dataset.tradeClause,sellerId:button.dataset.owner});return}
  if(button.dataset.shieldPlayer){const player=rosterPlayer(button.dataset.shieldPlayer,S.teamId);if(player)openShield(player);return}
@@ -1238,7 +1850,7 @@ document.addEventListener('click',async event=>{
  case 'sync-official':closeOverlay();officialSync=null;await loadPrivateLeague();break;
  case 'edit-trade':if(tradeDraft){tradeDraft.start=tradeDraft.amount;tradeForm(tradeDraft)}break;
  case 'confirm-trade':await submitTrade(button);break;
- case 'login':case 'restart-login':startLogin();break;case 'back-auth':S.loginStep=false;render();break;case 'connect':S.screen='auth';S.loginStep=false;render();window.scrollTo(0,0);break;case 'demo':S.demo=true;S.screen='leagues';S.leaguesError=null;render();window.scrollTo(0,0);break;case 'logout':if(!S.demo){try{await api('/api/auth',{method:'DELETE'})}catch(error){toast('No se pudo cerrar la sesión. Vuelve a intentarlo.',true);return}}S.auth={authenticated:false};S.demo=false;S.screen='auth';S.loginStep=false;S.league=null;S.roster=[];S.standings=[];S.leagues=[];render();window.scrollTo(0,0);break;case 'refresh-leagues':if(S.demo){render();toast('Ligas de demostración preparadas.')}else await loadLeagues();break;case 'leagues':closeOverlay();officialSync=null;S.screen='leagues';render();window.scrollTo(0,0);break;case 'refresh':await refreshAll();break;case 'menu':$('#sidebar').classList.toggle('mobile-open');break;case 'global-search':navigate('market');$('#market-search')?.focus();break;case 'optimize':S.lineup=optimize(S.roster,S.formation,S.risk,S.locked);render();$('#squad-lineup')?.scrollIntoView({block:'start'});toast(S.lineup?'Once optimizado. Revisa los jugadores antes de guardar.':'Tu plantilla no permite un once completo.',!S.lineup);break;case 'save-lineup':reviewLineup();break;case 'confirm-lineup':await saveLineup(button);break;case 'close-overlay':closeOverlay();break;case 'compare':comparePlayers();break;case 'prev-page':S.page=Math.max(0,S.page-1);render();break;case 'next-page':S.page++;render();break;case 'budget-analyze':S.budget=Math.max(0,Number($('#planner-budget')?.value)||0)*1e6;S.tab='coach';answerQuestion('¿A quién debería fichar con un límite de '+formatMoney(S.budget)+'?');break;case 'prev-week':loadCalendar(Math.max(1,(S.calendarWeek||S.week.weekNumber)-1));break;case 'next-week':loadCalendar(Math.min(38,(S.calendarWeek||S.week.weekNumber)+1));break;case 'current-week':loadCalendar(S.week.weekNumber);break;case 'export':exportPlan();break;case 'export-calendar':exportCalendar();break;case 'reset-alerts':S.dismissed=[];saveLocal('lg-v2-dismissed',[]);render();toast('Avisos restaurados.');break;case 'clear-local':S.watch=[];S.dismissed=[];S.settings={injuries:true,probabilities:true,deadline:true};saveLocal('lg-v2-watch',[]);saveLocal('lg-v2-dismissed',[]);saveLocal('lg-v2-settings',S.settings);render();toast('Preferencias locales borradas.');break;}
+ case 'login':case 'restart-login':startLogin();break;case 'back-auth':S.loginStep=false;render();break;case 'connect':S.screen='auth';S.loginStep=false;render();window.scrollTo(0,0);break;case 'demo':S.demo=true;S.screen='leagues';S.leaguesError=null;render();window.scrollTo(0,0);break;case 'logout':if(!S.demo){try{await api('/api/auth',{method:'DELETE'})}catch(error){toast('No se pudo cerrar la sesión. Vuelve a intentarlo.',true);return}}S.auth={authenticated:false};S.demo=false;S.screen='auth';S.loginStep=false;S.league=null;S.roster=[];S.standings=[];S.leagues=[];render();window.scrollTo(0,0);break;case 'refresh-leagues':if(S.demo){render();toast('Ligas de demostración preparadas.')}else await loadLeagues();break;case 'leagues':closeOverlay();officialSync=null;S.screen='leagues';render();window.scrollTo(0,0);break;case 'refresh':await refreshAll();break;case 'menu':$('#sidebar').classList.toggle('mobile-open');break;case 'global-search':navigate('market');$('#market-search')?.focus();break;case 'optimize':showLineupRecommendations();break;case 'save-lineup':reviewLineup();break;case 'confirm-lineup':await saveLineup(button);break;case 'close-overlay':closeOverlay();break;case 'compare':comparePlayers();break;case 'prev-page':S.page=Math.max(0,S.page-1);render();break;case 'next-page':S.page++;render();break;case 'budget-analyze':S.budget=Math.max(0,Number($('#planner-budget')?.value)||0)*1e6;S.tab='coach';answerQuestion('¿A quién debería fichar con un límite de '+formatMoney(S.budget)+'?');break;case 'prev-week':loadCalendar(Math.max(1,(S.calendarWeek||S.week.weekNumber)-1));break;case 'next-week':loadCalendar(Math.min(38,(S.calendarWeek||S.week.weekNumber)+1));break;case 'current-week':loadCalendar(S.week.weekNumber);break;case 'export':exportPlan();break;case 'export-calendar':exportCalendar();break;case 'reset-alerts':S.dismissed=[];saveLocal('lg-v2-dismissed',[]);render();toast('Avisos restaurados.');break;case 'clear-local':S.watch=[];S.dismissed=[];S.settings={injuries:true,probabilities:true,deadline:true};saveLocal('lg-v2-watch',[]);saveLocal('lg-v2-dismissed',[]);saveLocal('lg-v2-settings',S.settings);render();toast('Preferencias locales borradas.');break;}
 });
 document.addEventListener('submit',event=>{const form=event.target;event.preventDefault();if(form.id==='real-trade-form'){
  const amount=Number($('#trade-amount').value);
@@ -1250,9 +1862,22 @@ document.addEventListener('submit',event=>{const form=event.target;event.prevent
 }if(form.id==='login-form')completeLogin(form);if(form.id==='coach-form'){const q=$('#coach-question').value.trim();if(q)answerQuestion(q)}if(form.id==='bid-form'){const p=dataPlayer(form.dataset.bidPlayer);if(!p)return;const bid=Number($('#bid-input').value),remaining=S.balance===null?null:S.balance-bid,premium=p.value>0?(bid-p.value)/p.value*100:null;$('#bid-result').innerHTML=`${premium!==null?`Pagarías <strong>${num(premium)}%</strong> ${premium>=0?'por encima':'por debajo'} del valor de mercado.<br>`:''}${remaining===null?'Actualiza tu saldo para calcular cuánto te quedaría.':`Saldo tras esta compra hipotética: <strong class="${remaining<0?'amber':'green'}">${formatMoney(remaining,false)}</strong>.`}<br>Coste por punto estimado: ${p.expected>0?formatMoney(bid/p.expected,false):'sin proyección suficiente'}.<br>Esto es una simulación; no se ha enviado una puja.`}});
 document.addEventListener('change',event=>{const el=event.target;if(el.id==='squad-metric'&&Object.hasOwn(squadMetrics,el.value)){
  S.squadMetric=el.value;
- $('#squad-metrics').innerHTML=squadTable(squadPlayers());
+ $('#squad-value-controls').innerHTML=squadValueControls();
+ refreshSquadMetrics();
+ void loadSquadMarketHistory();
  return;
-}if(el.id==='remember')S.remember=el.checked;if(el.id==='market-sort'){S.sort=el.value;S.page=0;render()}if(el.id==='compare-a')S.compareA=el.value;if(el.id==='compare-b')S.compareB=el.value;if(el.id==='formation'){S.formation=el.value;const result=optimize(S.roster,S.formation,S.risk,S.locked);if(!result){S.formation='auto';toast('No hay suficientes jugadores para esa formación.',true)}S.lineup=result||optimize(S.roster,'auto',S.risk,S.locked);render()}if(el.id==='risk'){S.risk=el.value;S.lineup=optimize(S.roster,S.formation,S.risk,S.locked);render()}if(el.id==='planner-budget')S.budget=Math.max(0,Number(el.value)||0)*1e6});
+}
+if(el.dataset.squadValue){
+ const key=el.dataset.squadValue;
+ squadValueState()[key]=el.value;
+ if(key==='mode'){
+  $('#squad-value-controls').innerHTML=squadValueControls();
+  $('[data-squad-value="mode"]')?.focus();
+ }
+ refreshSquadMetrics();
+ void loadSquadMarketHistory();
+ return;
+}if(el.id==='remember')S.remember=el.checked;if(el.id==='market-seller'){S.marketSeller=el.value;S.page=0;render()}if(el.id==='market-sort'){S.sort=el.value;S.page=0;render()}if(el.id==='compare-a')S.compareA=el.value;if(el.id==='compare-b')S.compareB=el.value;if(el.id==='formation'){S.formation=el.value;const result=optimize(S.roster,S.formation,S.risk,S.locked);if(!result){S.formation='auto';toast('No hay suficientes jugadores para esa formación.',true)}S.lineup=result||optimize(S.roster,'auto',S.risk,S.locked);S.lineupDirty=true;S.lineupPick=null;render()}if(el.id==='risk'){S.risk=el.value;const current=bestLineup();S.lineup=current?lineupFromIds(current.formation,current.players.map(p=>p.id)):null;render()}if(el.id==='planner-budget')S.budget=Math.max(0,Number(el.value)||0)*1e6});
 let searchTimer;document.addEventListener('input',event=>{if(event.target.id==='market-search'){S.search=event.target.value;S.page=0;clearTimeout(searchTimer);searchTimer=setTimeout(()=>{const pos=event.target.selectionStart;render();const input=$('#market-search');input?.focus();try{input?.setSelectionRange(pos,pos)}catch{}},130)}});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if($('#overlay-root').innerHTML)closeOverlay();else $('#sidebar')?.classList.remove('mobile-open')}if(event.key==='Tab'&&$('#overlay-root').innerHTML){const list=$$('button,a[href],input,textarea,select,[tabindex="0"]',$('[role=dialog]')).filter(el=>!el.disabled);if(list.length){const first=list[0],last=list.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}});
 setInterval(updateCountdown,30000);
