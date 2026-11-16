@@ -30,9 +30,10 @@ Cambiar `SESSION_SECRET` invalida las sesiones existentes. Cerrar sesión borra 
 - **Mi plantilla** permite cambiar entre forma, valor, jornadas, próximo rival, nacionalidad, pie dominante, goles, tarjetas, minutos, balón parado, jerarquía y situación de mercado. El escudo identifica el blindaje activo y el botón de blindar lleva al flujo de anuncios de LALIGA Fantasy.
 - **Mercado de mi liga** permite pujar por los jugadores libres y hacer ofertas por los de otros equipos. Las operaciones pasan por una confirmación de importe.
 - **Rivales** abre el perfil del mánager en un cuadro central con clasificación, puntos, valor y plantilla. Las cláusulas muestran su precio y protección. Antes de pagar una cláusula, el servidor comprueba el propietario, el importe y el saldo.
-- También se incluyen optimizador y guardado del once, comparador, seguimiento, histórico de valor, simulador de presupuesto, calendario ICS, radar, asistente y exportación del plan de jornada.
+- **Asistente** reúne seis acciones por botones. Puedes preparar el once, buscar fichajes en el mercado y las cláusulas, calcular ventas, revisar riesgos y sus recambios, comprobar blindajes y comparar jugadores.
+- También se incluyen optimizador y guardado del once, comparador, seguimiento, histórico de valor, simulador de presupuesto, calendario ICS, radar y exportación del plan de jornada.
 
-El asistente usa un motor estadístico local, no una API de lenguaje. La proyección base combina 60% media de temporada y 40% últimas cinco jornadas, ajustadas por titularidad. No garantiza resultados. La demo identifica sus ligas, saldo y clasificación como ejemplos. El simulador calcula presupuestos y la pantalla de mercado confirma las operaciones reales. Seguimiento y preferencias se guardan en este navegador; no hay notificaciones con la aplicación cerrada.
+El asistente usa un motor estadístico local. La proyección base combina 60% media de temporada y 40% últimas cinco jornadas, ajustadas por titularidad. La demo identifica sus ligas, saldo y clasificación como ejemplos. El simulador calcula presupuestos y las operaciones reales pasan por una confirmación. Asistente, Resumen y Radar usan el mercado y la plantilla de la liga activa para las recomendaciones. El seguimiento y los avisos descartados se guardan en este navegador por cuenta y liga. Los avisos se actualizan al consultar la aplicación.
 
 ## Fuentes y límites de validación
 

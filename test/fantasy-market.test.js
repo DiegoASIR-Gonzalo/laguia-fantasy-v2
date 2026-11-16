@@ -20,10 +20,13 @@ class FixedDate extends Date {
 function loadMarket() {
   const code = script.replace(/^boot\(\);$/m, '') +
     '\n({S, historyValues, dailyMarketChanges, squadValuePeriod, squadValuation, newClauseMarket, clauseRows,' +
-    ' standingInfo, mergePrivate, clauseOwner, profilePlayerActions})';
+    ' standingInfo, mergePrivate, clauseOwner, profilePlayerActions, available, assistantPurchaseOptions,' +
+    ' assistantSalePlans, optimize, loadLeaguePreferences, saveLeaguePreference})';
+  const storage = new Map([['lg-v2-watch', '["legacy"]']]);
   return runInNewContext(code, {
     Date: FixedDate,
     document: {addEventListener() {}},
+    localStorage: {getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value)},
     setInterval() {},
   });
 }
@@ -112,4 +115,84 @@ test('clauses and player profiles keep the league manager name when the team nam
   const [auction] = mergePrivate([{...slot, discr: 'marketPlayerLeague', teamName: 'Club de LALIGA'}], 'market');
   assert.equal(auction.ownerName, null);
   assert.equal(auction.ownerManager, null);
+});
+
+test('purchase analysis uses actual league listings, bid minima, position and available balance', () => {
+  const {S, available, assistantPurchaseOptions, newClauseMarket} = loadMarket();
+  S.teamId = 'own';
+  S.balance = 7000000;
+  const listing = (id, overrides = {}) => ({
+    id, position: 2, listing: 'listing-' + id, listingType: 'marketPlayerLeague', price: 4000000, value: 4500000,
+    points: 50, average: 4, recent: 5, prob: 90, ...overrides,
+  });
+  S.roster = [listing('already-own')];
+  S.players = [listing('catalogue-only', {listing: ''})];
+  S.market = [
+    listing('valid'),
+    listing('too-expensive', {value: 7500000}),
+    listing('wrong-position', {position: 3}),
+    listing('expired', {expires: new Date(now - 1000).toISOString()}),
+    listing('already-own'),
+  ];
+  const state = {source: 'league', position: '2', order: 'price', budget: 6000000};
+  assert.deepEqual(Array.from(assistantPurchaseOptions(state), row => [row.p.id, row.amount]), [['valid', 4500000]]);
+  assert.equal(assistantPurchaseOptions({...state, budget: 4400000}).length, 0);
+  const simulated = assistantPurchaseOptions({...state,budget:8000000,funding:'simulation'});
+  assert.deepEqual(Array.from(simulated,row=>row.p.id), ['valid','too-expensive']);
+  S.clauseMarket = newClauseMarket();
+  S.clauseMarket.rosters.set('rival', [
+    listing('open', {ownerTeamId: 'rival', privateId: 'slot-open', clause: 5000000}),
+    listing('blocked', {ownerTeamId: 'rival', privateId: 'slot-blocked', clause: 5000000, shielded: true}),
+  ]);
+  assert.deepEqual(Array.from(assistantPurchaseOptions({...state, source: 'clauses-open'}), row=>row.p.id), ['open']);
+  assert.deepEqual(Array.from(assistantPurchaseOptions({...state, source: 'clauses-locked'}), row=>row.p.id), ['blocked']);
+  S.market = [];
+  assert.equal(available().length, 0);
+  assert.equal(assistantPurchaseOptions(state).length, 0);
+});
+
+test('sale plans cover the target with substitutes and keep a valid lineup and pinned players', () => {
+  const {S, assistantSalePlans, optimize} = loadMarket();
+  const player = (id, position, value = 8e6, average = 5) => ({id, position, value, average, recent: average, prob: 90});
+  S.roster = [player('gk', 1), ...Array.from({length:4}, (_, i)=>player('def'+i,2)),
+    ...Array.from({length:4}, (_, i)=>player('mid'+i,3)), player('fwd0',4), player('fwd1',4),
+    player('bench-def',2,5e6,1), player('bench-mid',3,6e6,1)];
+  S.locked = ['def0'];
+  S.lineup = optimize(S.roster, '4-4-2', S.risk, S.locked);
+  const [plan] = assistantSalePlans(11e6, 'bench');
+  assert.ok(plan.meets);
+  assert.equal(plan.loss, 0);
+  assert.equal(plan.lineup.players.length, 11);
+  assert.deepEqual(Array.from(plan.sold, p=>p.id), ['bench-def','bench-mid']);
+  for (const option of assistantSalePlans(50e6, 'all')) {
+    assert.ok(option.sold.every(p=>p.id!=='def0'));
+    assert.equal(option.lineup.players.length, 11);
+  }
+});
+
+test('watchlists and dismissed alerts are restored per account and league', () => {
+  const {S, loadLeaguePreferences, saveLeaguePreference} = loadMarket();
+  S.auth = {authenticated:true,userId:'account-1'};
+  S.league = {id:'league-a'};
+  loadLeaguePreferences();
+  assert.equal(S.watch.length, 0);
+  S.watch = ['only-in-a'];
+  S.dismissed = ['status-only-in-a'];
+  saveLeaguePreference('watch');
+  saveLeaguePreference('dismissed');
+
+  S.league = {id:'league-b'};
+  loadLeaguePreferences();
+  assert.equal(S.watch.length, 0);
+  assert.equal(S.dismissed.length, 0);
+  S.watch = ['only-in-b'];
+  saveLeaguePreference('watch');
+
+  S.league = {id:'league-a'};
+  loadLeaguePreferences();
+  assert.deepEqual(Array.from(S.watch), ['only-in-a']);
+  assert.deepEqual(Array.from(S.dismissed), ['status-only-in-a']);
+  S.auth.userId = 'account-2';
+  loadLeaguePreferences();
+  assert.equal(S.watch.length, 0);
 });
