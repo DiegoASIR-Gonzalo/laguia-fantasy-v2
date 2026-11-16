@@ -8,9 +8,9 @@ Para datos en vivo, tus ligas y el login, sirve el HTML junto al servidor HTTPS.
 
 ## Vercel
 
-1. Extrae el ZIP y despliega esta carpeta con Vercel. `vercel.json` configura `public/` como directorio estático y `api/[...route].js` es la función de servidor. No hay dependencias de producción.
+1. Extrae el ZIP y despliega esta carpeta con Vercel. `vercel.json` configura `public/` como directorio estático y `api/[...route].js` atiende las rutas de un nivel y `api/auth/start.js` registra el inicio de sesión. No hay dependencias de producción.
 2. Añade `SESSION_SECRET` en las variables de entorno de producción. Usa un valor aleatorio de al menos 32 bytes y mantenlo secreto. Puedes generar uno en tu ordenador con `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`.
-3. Vuelve a desplegar tras configurar el secreto. Abre la URL, conecta tu cuenta y elige una liga. Para editar la interfaz, modifica únicamente `public/index.html`.
+3. Vuelve a desplegar tras configurar el secreto. Comprueba que `/api/health` indica `"authConfigured": true`. Abre la URL, conecta tu cuenta y elige una liga. Para editar la interfaz, modifica únicamente `public/index.html`.
 
 ## Cloudflare Workers
 
