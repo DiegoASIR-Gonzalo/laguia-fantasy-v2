@@ -218,6 +218,7 @@
 .clause-market-table{scrollbar-width:thin}
 .clause-market-table table{min-width:805px}
 .clause-market-table :is(td,th){white-space:nowrap}
+.clause-market-table td:nth-child(2){min-width:135px;max-width:240px;white-space:normal;overflow-wrap:anywhere}
 .clause-market-table td time,.clause-market-table td small{display:block}
 .clause-market-table td .clause-price{white-space:normal;min-width:106px}
 .clause-market-table td .badge{margin-top:4px}
@@ -235,6 +236,7 @@
 .clause-report-card .clause-unlock+small{margin-inline-start:5px}
 .clause-method{padding:10px 0;color:var(--chart-neutral);font-size:13px}
 .clause-method summary{cursor:pointer;color:var(--text)}
+[data-player-actions] .report-actions>div:first-child{min-width:0;overflow-wrap:anywhere}
 @media(max-width:560px){
  .squad-value-panel{margin:12px 10px;padding:10px}
  .team-value-summary{gap:10px 16px}
@@ -357,7 +359,7 @@ function startLogin(){const remembered=$('#remember')?.checked??S.remember;S.rem
 function demoLeagues(){return [{id:'demo-1',name:'La liga de los colegas',members:12,teamId:'demo-me',description:'Donde cada lunes se habla de fútbol.',rank:2},{id:'demo-2',name:'La oficina',members:8,teamId:'demo-me',description:'La rivalidad también se ficha.',rank:3}]}
 async function loadLeagues(){try{S.leagues=collection(await data(privateBase+'/leagues')).map(normalizeLeague);S.leaguesError=null;render()}catch(error){S.leaguesError=error.message;render()}}
 function leaguesView(){const leagues=S.demo?demoLeagues():S.leagues;return `<div class="lobby"><header class="lobby-header">${brand()}<div style="display:flex;gap:12px;align-items:center">${S.demo?'<span class="badge warn">MODO DEMO</span>':`<span class="badge good">${icon('shield')} Sesión conectada</span>`}<button class="btn subtle small" data-action="logout">${icon('logout')} ${S.demo?'Salir de demo':'Desconectar'}</button></div></header><main class="lobby-body"><div class="lobby-title"><div><div class="eyebrow red">BIENVENIDO A TU VENTAJA</div><h1>Tus ligas. Tu próximo reto.</h1><p>${S.demo?'Estos equipos son de ejemplo. Las estadísticas públicas se consultan en la API.':'Hola, '+e(S.auth.managerName||'mánager')+'. Elige una liga y entra en juego.'}</p></div><button class="icon-btn" data-action="refresh-leagues" aria-label="Actualizar ligas">${icon('refresh')}</button></div>${S.leaguesError?`<div class="error-inline">${e(S.leaguesError)} <button class="link-btn" data-action="refresh-leagues">Reintentar</button></div>`:''}<div class="league-grid">${leagues.map((l,i)=>`<button class="league-card" data-league="${e(l.id)}"><span class="arrow">${icon('external')}</span><div class="league-emblem">${icon(i?'shield':'trophy')}</div><h2>${e(l.name)}</h2><p>${S.demo?e(l.description):'LALIGA Fantasy'+(l.members?' · '+l.members+' mánagers':'')}</p><div class="league-card-footer"><span>${S.demo?`<strong>${l.rank}º</strong> de ${l.members} mánagers`:'Abrir mi centro de mando'}</span><span class="red">Entrar ${icon('arrow')}</span></div></button>`).join('')}</div>${!leagues.length&&!S.leaguesError?`<div class="panel"><div class="empty-state">${icon('trophy')}<h3>${S.auth.authenticated?'Todavía no aparecen ligas':'Cargando tus ligas'}</h3><p>Comprueba que tu cuenta tenga una liga activa en LALIGA Fantasy y actualiza la lista.</p><button class="btn" data-action="refresh-leagues">${icon('refresh')} Actualizar ligas</button></div></div>`:''}<div class="lobby-help">${icon('spark')}<div><strong>Una estrategia para cada liga.</strong><p>Tu asistente adapta las recomendaciones a tu plantilla, tu saldo y los jugadores disponibles.</p></div></div>${!S.demo?`<div class="model-note">${icon('lock')} Tu acceso está guardado hasta el ${new Date(S.auth.expiresAt).toLocaleDateString('es-ES',{timeZone:'Europe/Madrid',day:'numeric',month:'long'})}. ${S.auth.renewable?'El servidor renovará la autorización al usar la app.':'LALIGA puede pedirte identificarte antes porque no ha entregado un refresh token.'}</div>`:''}</main></div>`}
-function seedDemo(){const ids=['68','2755','67','121','74','2315','2530','2430','2534','3086','3090','2464','3104','3084','2771','302'];S.roster=ids.map(id=>S.players.find(p=>p.id===id)).filter(Boolean).map((p,i)=>({...p,ownerTeamId:'demo-me',ownerName:'Tu equipo',clause:Math.round(p.value*1.25),shielded:i===0}));S.balance=28.4e6;S.teamId='demo-me';S.budget=50e6;S.standings=[{id:'d1',name:'Los Galácticos',managerName:'Pablo M.',points:1082,weekPoints:82},{id:'demo-me',name:'Tu equipo',managerName:'Tú',points:1049,weekPoints:76},{id:'d3',name:'Los del VAR',managerName:'Carlos R.',points:1031,weekPoints:68},{id:'d4',name:'Tiki Taka FC',managerName:'Marta G.',points:1006,weekPoints:73},{id:'d5',name:'La última y nos vamos',managerName:'Javi S.',points:983,weekPoints:59},{id:'d6',name:'Balón de barrio',managerName:'Ana L.',points:972,weekPoints:67},{id:'d7',name:'Real Banquillo',managerName:'Dani P.',points:945,weekPoints:52},{id:'d8',name:'Sin presupuesto FC',managerName:'Lucía F.',points:931,weekPoints:63}];S.market=S.players.filter(p=>!ids.includes(p.id)&&p.average>3).sort((a,b)=>b.average-a.average).slice(0,60).map(p=>({...p,listing:'demo-'+p.id,listingType:'marketPlayerLeague',price:p.value}));const prior=readLocal(demoLineupKey(),readLocal('lg-v2-demo-lineup',null));
+function seedDemo(){const ids=['68','2755','67','121','74','2315','2530','2430','2534','3086','3090','2464','3104','3084','2771','302'];S.roster=ids.map(id=>S.players.find(p=>p.id===id)).filter(Boolean).map((p,i)=>({...p,ownerTeamId:'demo-me',ownerName:'Tu equipo',ownerManager:'Tú',clause:Math.round(p.value*1.25),shielded:i===0}));S.balance=28.4e6;S.teamId='demo-me';S.budget=50e6;S.standings=[{id:'d1',name:'Los Galácticos',managerName:'Pablo M.',points:1082,weekPoints:82},{id:'demo-me',name:'Tu equipo',managerName:'Tú',points:1049,weekPoints:76},{id:'d3',name:'Los del VAR',managerName:'Carlos R.',points:1031,weekPoints:68},{id:'d4',name:'Tiki Taka FC',managerName:'Marta G.',points:1006,weekPoints:73},{id:'d5',name:'La última y nos vamos',managerName:'Javi S.',points:983,weekPoints:59},{id:'d6',name:'Balón de barrio',managerName:'Ana L.',points:972,weekPoints:67},{id:'d7',name:'Real Banquillo',managerName:'Dani P.',points:945,weekPoints:52},{id:'d8',name:'Sin presupuesto FC',managerName:'Lucía F.',points:931,weekPoints:63}];S.market=S.players.filter(p=>!ids.includes(p.id)&&p.average>3).sort((a,b)=>b.average-a.average).slice(0,60).map(p=>({...p,listing:'demo-'+p.id,listingType:'marketPlayerLeague',price:p.value}));const prior=readLocal(demoLineupKey(),readLocal('lg-v2-demo-lineup',null));
 S.savedLineup=prior?lineupFromIds(prior.formation,prior.ids??[]):null;
 S.lineup=(S.lineupDirty&&S.lineup?lineupFromIds(S.lineup.formation,S.lineup.players.map(p=>p.id)):null)||S.savedLineup||optimize(S.roster,S.formation,S.risk,S.locked);}
 const officialApp = 'https://fantasylaliga.onelink.me/k6nG?af_dp=fantasy%3A%2F%2Fsplashactivity&pid=web-fantasy&af_force_deeplink=true';
@@ -419,14 +421,30 @@ async function loadSquadStats() {
  }
 }
 
+const firstDisplayName = (...values) => values.find(value=>typeof value==='string' && value.trim())?.trim() ?? null;
+
+function fantasyManagerName(person) {
+ return firstDisplayName(person?.managerName,person?.displayName,person?.nickname,person?.username,person?.userName,person?.name,person);
+}
+
+function fantasyTeamNames(row, team = row?.team ?? row?.managerTeam) {
+ return {
+  teamName: firstDisplayName(row?.teamName,team?.teamName,team?.name,row?.name,team?.displayName,team?.nickname,team),
+  managerName: firstDisplayName(row?.managerName,team?.managerName,
+   ...[row?.manager,team?.manager,row?.user,team?.user,row?.owner,team?.owner].map(fantasyManagerName),
+   row?.displayName,row?.nickname,row?.username,row?.userName),
+ };
+}
+
 function standingInfo(row, index = S.standings.indexOf(row)) {
  const team = row?.team ?? {};
- const manager = team.manager ?? (typeof row?.manager === 'object' ? row.manager : null);
+ const names = fantasyTeamNames(row);
  return {
+  ...names,
   id: String(row?.teamId ?? team.id ?? row?.id ?? ''),
-  userId: String(row?.userId ?? row?.managerId ?? manager?.id ?? ''),
-  name: row?.teamName ?? team.name ?? row?.name ?? 'Equipo',
-  manager: row?.managerName ?? (typeof row?.manager === 'string' ? row.manager : undefined) ?? manager?.managerName ?? manager?.name ?? row?.nickname ?? 'Mánager',
+  userId: String(row?.userId ?? row?.managerId ?? row?.manager?.id ?? team.manager?.id ?? row?.user?.id ?? team.user?.id ?? ''),
+  name: names.teamName ?? names.managerName ?? 'Equipo',
+  manager: names.managerName ?? 'Mánager',
   rank: (numberOrNull(row?.position) || index + 1) || null,
   points: numberOrNull(row?.points ?? row?.totalPoints ?? row?.score ?? team.teamPoints ?? team.points),
   livePoints: numberOrNull(row?.livePoints),
@@ -446,6 +464,9 @@ function normalizeLeague(raw) {
 }
 
 function mergePrivate(raw, kind, owner = null) {
+ const knownOwners = kind==='market' ? new Map(S.standings.map(standingInfo).map(team=>[team.id,team])) : null;
+ const rosterNames = kind==='roster' ? fantasyTeamNames(raw) : null;
+ const nestedRosterNames = kind==='roster' ? fantasyTeamNames(raw?.data ?? raw?.content) : null;
  return collection(raw).flatMap(row => {
   const slot = row.playerTeam ?? row;
   const master = row.playerMaster ?? slot.playerMaster ?? row.player?.playerMaster ?? row.player ?? row;
@@ -455,11 +476,18 @@ function mergePrivate(raw, kind, owner = null) {
   const p = normalizePlayer({...row, playerMaster: {...base?.raw, ...master}}, S.teams, S.probabilities, S.week.weekNumber);
   const bid = row.bid ?? row.myBid ?? row.offer ?? row.myOffer;
   const pending = !['cancelled', 'rejected', 'expired', 'outdated'].includes(bid?.status);
+  const ownerTeamId = owner?.id ?? String(row.sellerTeam?.id ?? row.sellerTeamId ?? '');
+  const knownOwner = owner ?? knownOwners?.get(ownerTeamId);
+  const seller = kind==='market' && row.discr!=='marketPlayerLeague' && (ownerTeamId || row.discr==='marketPlayerTeam')
+   ? fantasyTeamNames({managerName:row.managerName ?? row.sellerName,teamName:row.teamName,manager:row.manager,team:row.sellerTeam})
+   : null;
   return [{
    ...p, raw: row,
    privateId: String(slot.playerTeamId ?? (kind === 'roster' || row.playerTeam ? slot.id : '') ?? ''),
-   ownerTeamId: owner?.id ?? String(row.sellerTeam?.id ?? row.sellerTeamId ?? ''),
-   ownerName: owner?.name ?? row.sellerTeam?.name ?? row.sellerTeam?.manager?.managerName ?? null,
+   ownerTeamId,
+   ownerName: firstDisplayName(knownOwner?.teamName,seller?.teamName,rosterNames?.teamName,nestedRosterNames?.teamName),
+   ownerManager: firstDisplayName(knownOwner?.managerName,seller?.managerName,rosterNames?.managerName,nestedRosterNames?.managerName,
+    ownerTeamId && ownerTeamId===S.teamId ? S.auth.managerName : null),
    clause: numberOrNull(slot.buyoutClause ?? slot.releaseClause ?? slot.clauseValue),
    clauseLockedUntil: slot.buyoutClauseLockedEndTime,
    shielded: flag(slot.isShielded), shieldedUntil: slot.shieldedEndDate,
@@ -483,7 +511,7 @@ async function enterLeague(id) {
   tab: 'overview', screen: 'app', leagueLoading: true, errors: [], privateErrors: [], roster: [],
   standings: [], market: [], lineup: null, savedLineup:null, lineupDirty:false, lineupPick:null, lineupSaving:false, formation: 'auto', locked: [], chat: [], balance: null,
   teamId: null, reward: null, marketTab: 'league', marketSeller:'grouped', page: 0, search: '', position: 'all',
-  rivalRosters: new Map(), recentTrades: new Map(), squadValue: null, clauseMarket: newClauseMarket(),
+   rivalRosters: new Map(), rivalRosterRequests: new Map(), recentTrades: new Map(), squadValue: null, clauseMarket: newClauseMarket(),
  });
  render();
  await dataReady;
@@ -532,7 +560,7 @@ async function loadPrivateLeague() {
  S.teamId = status.value?.teamId || league.teamId || (mine && standingInfo(mine).id) || null;
  if (S.teamId) {
   const own = S.standings.map(standingInfo).find(team => team.id === S.teamId) ??
-   {id: S.teamId, name: S.auth.managerName || 'Tu equipo'};
+   {id: S.teamId};
   const [roster, money, saved] = await Promise.allSettled([
    data(privateBase + '/leagues/' + id + '/teams/' + encodeURIComponent(S.teamId)),
    data(privateBase + '/teams/' + encodeURIComponent(S.teamId) + '/money'),
@@ -557,7 +585,7 @@ async function loadPrivateLeague() {
  S.budget = S.balance ?? 0;
  S.privateErrors = failures;
  S.leagueLoading = false;
- invalidateClauseMarket();
+ invalidateLeagueRosters();
  render();
  if (S.tab === 'squad') void loadSquadStats();
 }
@@ -595,8 +623,10 @@ function newClauseMarket() {
   sort:'score',owner:'all',position:'all',recommended:false,demoAt:Date.now()};
 }
 
-function invalidateClauseMarket() {
- S.clauseMarket = {...S.clauseMarket,updatedAt:0,nextUnlock:Infinity,loading:false};
+function invalidateLeagueRosters() {
+ S.rivalRosters = new Map();
+ S.rivalRosterRequests = new Map();
+ S.clauseMarket = {...S.clauseMarket,rosters:new Map(),updatedAt:0,nextUnlock:Infinity,loading:false};
 }
 
 function clauseTeams() {
@@ -631,8 +661,14 @@ function clausePriceHtml(p, compact = false) {
 
 async function leagueRoster(league, team) {
  if (S.demo) return demoRivalRoster(team.id);
- const raw = await data(privateBase+'/leagues/'+encodeURIComponent(league.id)+'/teams/'+encodeURIComponent(team.id));
- return mergePrivate(raw,'roster',team);
+ const pending = S.rivalRosterRequests;
+ if (!pending.has(team.id)) {
+  const request = data(privateBase+'/leagues/'+encodeURIComponent(league.id)+'/teams/'+encodeURIComponent(team.id))
+   .then(raw=>mergePrivate(raw,'roster',team))
+   .finally(()=>pending.delete(team.id));
+  pending.set(team.id,request);
+ }
+ return pending.get(team.id);
 }
 
 async function loadClauseMarket(force = false) {
@@ -675,6 +711,8 @@ async function loadClauseMarket(force = false) {
  }
  if (!current()) return;
  Object.assign(state,{rosters,failed,quotes,nextUnlock,updatedAt:now,loading:false});
+ const owners = $('#clause-owner');
+ if (owners) owners.innerHTML = clauseOwnerOptions();
  paintClauseMarket();
 }
 
@@ -717,7 +755,7 @@ function clauseRows({smart = false} = {}) {
   .filter(p=>p.clause>0 && (smart || (
    (state.owner==='all' || state.owner===p.ownerTeamId) &&
    (state.position==='all' || p.position===Number(state.position)) &&
-   (!search || [p.name,p.fullName,p.team,p.shortTeam,p.ownerName].some(value=>nameKey(value).includes(search)))
+   (!search || [p.name,p.fullName,p.team,p.shortTeam,p.ownerManager,p.ownerName].some(value=>nameKey(value).includes(search)))
   )))
   .map(p=>clauseInsights(p,now))
   .filter(row=>row.protection.locked===locked && (!(smart || state.recommended) || row.recommended))
@@ -750,12 +788,19 @@ function tickClauseMarket() {
  if (S.screen==='app' && S.tab==='market' && isClauseTab()) void loadClauseMarket();
 }
 
+function clauseOwner(p) {
+ const owner = p.ownerManager ?? p.ownerName ?? (ownPlayer(p)?'Tu plantilla':'—');
+ const caption = [p.ownerName && p.ownerName!==owner ? p.ownerName : null,
+  ownPlayer(p) && owner!=='Tu plantilla' ? 'Tu plantilla' : null].filter(Boolean).join(' · ');
+ return `<strong>${e(owner)}</strong>${caption?`<small class="muted">${e(caption)}</small>`:''}`;
+}
+
 function clauseTable(rows) {
  return `<div class="table-scroll full-table clause-market-table" tabindex="0" aria-label="Cláusulas de la liga">
-  <table><thead><tr><th scope="col">Jugador</th><th scope="col">Equipo fantasy</th><th scope="col">Cláusula</th>
+  <table><thead><tr><th scope="col">Jugador</th><th scope="col">Propietario fantasy</th><th scope="col">Cláusula</th>
    <th scope="col">Valor de mercado</th><th scope="col">Puntos</th><th scope="col">${lockedClauseTab()?'Tiempo restante':'Estado'}</th><th scope="col">Acción</th>
   </tr></thead><tbody>${rows.map(({p,protection,recommended,remaining})=>`<tr>
-   <td>${playerCell(p)}</td><td>${e(p.ownerName ?? '—')}${ownPlayer(p)?'<small class="muted">Tu plantilla</small>':''}</td>
+   <td>${playerCell(p)}</td><td>${clauseOwner(p)}</td>
    <td><strong>${clausePriceHtml(p)}</strong></td><td>${fmtFull(p.value||null)}</td><td>${fmtInteger(p.points)}</td>
    <td>${clauseProtectionHtml(protection)}${recommended?'<span class="badge good">Recomendada</span>':''}</td>
    <td>${protection.locked || ownPlayer(p) ? '—' : remaining!==null && remaining<0 ? 'Saldo insuficiente' : clauseButton(p)||'—'}</td>
@@ -787,6 +832,19 @@ function paintClauseMarket() {
  $('[data-action="refresh-clauses"]').disabled = S.clauseMarket.loading || S.leagueLoading || !S.teamId;
 }
 
+function clauseOwnerOptions() {
+ const state = S.clauseMarket;
+ const choices = [['all','Todos los propietarios'],...clauseTeams().map(team=>{
+  const player = state.rosters.get(team.id)?.[0];
+  const manager = player?.ownerManager ?? team.managerName;
+  const name = player?.ownerName ?? team.teamName;
+  const label = [...new Set([manager,name].filter(Boolean))].join(' · ') || team.name;
+  return [team.id,label+(team.id===S.teamId?' (tú)':'')];
+ })];
+ return choices.map(([key,label])=>
+  `<option value="${e(key)}" ${key===state.owner?'selected':''}>${e(label)}</option>`).join('');
+}
+
 function clauseMarketView() {
  const state = S.clauseMarket;
  const locked = lockedClauseTab();
@@ -796,8 +854,6 @@ function clauseMarketView() {
   ['score','Mejor valoración'],['priceAsc','Cláusula de menor a mayor'],['priceDesc','Cláusula de mayor a menor'],
   ['name','Jugador de A a Z'],['points','Más puntos'],...(locked?[['unlock','Desbloqueo más próximo']]:[]),
  ];
- const owners = [['all','Todos los equipos'],...clauseTeams().map(team=>
-  [team.id,team.name+(team.id===S.teamId?' (tú)':'')])];
  return `<section class="panel">
   <div class="panel-head clause-market-head">
    <div><h2>${icon(locked?'lock':'arrows')} Cláusulas ${locked?'bloqueadas':'disponibles'}</h2>
@@ -809,8 +865,8 @@ function clauseMarketView() {
   </div>
   <div class="toolbar clause-market-toolbar">
    <div class="search">${icon('search')}<input id="market-search" type="search" value="${e(S.search)}"
-    placeholder="Busca un jugador o un equipo…" aria-label="Buscar jugador o equipo"></div>
-   <select id="clause-owner" aria-label="Equipo fantasy">${options(owners,state.owner)}</select>
+    placeholder="Busca un jugador, mánager o equipo…" aria-label="Buscar jugador, mánager o equipo"></div>
+   <select id="clause-owner" aria-label="Propietario fantasy">${clauseOwnerOptions()}</select>
    <select id="clause-position" aria-label="Posición">${options([['all','Todas las posiciones'],...Object.entries(POS)],state.position)}</select>
    <select id="clause-sort" aria-label="Ordenar cláusulas">${options(sorts,locked || state.sort!=='unlock'?state.sort:'score')}</select>
    <button class="pill ${state.recommended?'active':''}" data-action="recommended-clauses" aria-pressed="${state.recommended}">Recomendadas</button>
@@ -852,7 +908,7 @@ function clauseReportCard(row) {
   ])}
   <div data-clause-trend>${clauseTrendStats(row)}</div>
   ${observed?`<p class="hint">Cláusula sin cambios en las consultas desde el ${e(dateText(quote.first))}.</p>`:''}
-  <footer><div>${e(p.ownerName??'—')} · ${clauseProtectionHtml(protection)}</div>${protection.locked?'':clauseButton(p)}</footer>
+  <footer><div>${e(p.ownerManager??p.ownerName??'—')} · ${clauseProtectionHtml(protection)}</div>${protection.locked?'':clauseButton(p)}</footer>
  </article>`;
 }
 
@@ -1019,7 +1075,7 @@ function listingStatus(p) {
  if (amount !== null && amount !== undefined) return (p.listingType === 'marketPlayerTeam' ? 'Tu oferta: ' : 'Tu puja: ') + fmtFull(amount);
  if (p.bidId) return p.listingType === 'marketPlayerTeam' ? 'Oferta pendiente' : 'Puja activa';
  if (p.listingType === 'marketPlayerLeague' && p.numberOfBids !== null) return p.numberOfBids + (p.numberOfBids === 1 ? ' puja' : ' pujas');
- const seller = p.ownerName ?? S.standings.map(standingInfo).find(team => team.id === p.ownerTeamId)?.name;
+ const seller = p.ownerManager ?? p.ownerName ?? S.standings.map(standingInfo).find(team => team.id === p.ownerTeamId)?.name;
  return seller || (p.listingType === 'marketPlayerLeague' ? 'LALIGA' : '—');
 }
 
@@ -1090,11 +1146,12 @@ function tradeForm(draft) {
 function tradeConfirm(draft) {
  const {player, action, league, amount} = draft;
  const clause = action === 'clause';
+ const owner = player.ownerManager ?? player.ownerName;
  const operation = clause ? 'clausulazo' : action === 'bid' ? (player.bidId ? 'cambio de puja' : 'puja') : 'oferta';
  const balanceAfter = S.balance === null ? null : S.balance - amount;
  overlay(`<div class="modal-top"><h2>Confirmar ${operation}</h2>
   <button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div>
-  <p><strong>${e(player.name)}</strong> · ${e(league.name)}${clause ? ' · ' + e(player.ownerName) : ''}</p>
+  <p><strong>${e(player.name)}</strong> · ${e(league.name)}${clause && owner ? ' · ' + e(owner) : ''}</p>
   ${tradeTotals([
    [clause ? 'Cláusula' : 'Importe', fmtFull(amount)],
    [clause ? 'Saldo tras el fichaje' : 'Saldo actual', fmtFull(clause ? balanceAfter : S.balance)],
@@ -1680,16 +1737,21 @@ function squadView(){const lineup=bestLineup();const bench=squadBench(lineup);re
 <div id="squad-bench">${squadBenchContent(bench)}</div>
 </section></div>`}
 
-function profilePlayerActions(p) {
+function profilePlayerActions(p, checkingOwner = false) {
  const listing = marketFor(p.id);
  const controls = [listing && listingButton(listing), clauseButton(p), shieldControl(p)].filter(Boolean).join('');
- if (!p.ownerTeamId && !listing) return '';
+ if (!p.ownerTeamId && !listing && !checkingOwner) return '';
  const clause = p.clause > 0;
- const title = p.ownerName || (ownPlayer(p) ? 'Tu plantilla' : 'Mercado de tu liga');
+ const title = p.ownerManager ? 'Mánager fantasy · '+p.ownerManager : p.ownerName ? 'Equipo fantasy · '+p.ownerName
+  : ownPlayer(p) ? 'Tu plantilla' : p.ownerTeamId ? 'Mánager sin identificar' : 'Mercado de tu liga';
  let status = clause ? clauseStatus(p) : listing ? listingStatus(listing) : 'Sin cláusula publicada';
  if (!ownPlayer(p) && clause && !clauseProtection(p).locked &&
     S.balance !== null && S.balance < p.clause) status += ' · Saldo insuficiente';
- return `<div class="report-actions"><div><strong>${e(title)}</strong><p class="hint">${e(status)}</p></div>
+ const details = [p.ownerManager && p.ownerName!==p.ownerManager ? p.ownerName : null,
+  ownPlayer(p) && title!=='Tu plantilla' ? 'Tu plantilla' : null,status].filter(Boolean).join(' · ');
+ return `<div class="report-actions"><div>
+   ${checkingOwner && !p.ownerTeamId && !listing ? '' : `<strong>${e(title)}</strong><p class="hint">${e(details)}</p>`}
+   ${checkingOwner?'<p class="hint" role="status">Consultando mánager de tu liga…</p>':''}</div>
   ${controls ? `<div class="row-actions">${controls}</div>` : ''}</div>`;
 }
 
@@ -1722,16 +1784,45 @@ function playerSummary(p) {
  ].map(([label,value]) => profileTile(label,value)).join('')}</div>`;
 }
 
+function knownLeaguePlayer(id, teamId) {
+ if (teamId) return rosterPlayer(id,teamId);
+ return S.roster.find(p=>p.id===id) || [...S.rivalRosters.values()].flat().find(p=>p.id===id);
+}
+
+function ownerLookupTeams(p) {
+ const listing = marketFor(p.id);
+ if (S.leagueLoading || p.ownerManager || ownPlayer(p) || (!S.demo && !p.ownerTeamId && listing && isLeagueListing(listing))) return [];
+ return clauseTeams().filter(team=>team.id!==S.teamId && !S.rivalRosters.has(team.id) &&
+  (!p.ownerTeamId || p.ownerTeamId===team.id));
+}
+
+async function loadPlayerOwner(p, teams, dialog) {
+ const league = S.league;
+ const rosters = S.rivalRosters;
+ const current = () => sameLeague(league) && S.rivalRosters===rosters;
+ for (let start=0;start<teams.length && current() && dialog.isConnected;start+=4) {
+  const batch = teams.slice(start,start+4);
+  const results = await Promise.allSettled(batch.map(team=>rosters.get(team.id) ?? leagueRoster(league,team)));
+  if (!current()) return null;
+  results.forEach((result,index)=>{
+   if (result.status==='fulfilled') rosters.set(batch[index].id,result.value);
+  });
+  const owner = knownLeaguePlayer(p.id,p.ownerTeamId);
+  if (owner) return owner;
+ }
+ return null;
+}
+
 async function openPlayer(id, teamId = '', fromClauseReport = false) {
- const p = (teamId && rosterPlayer(id, teamId)) ||
-  S.roster.find(p=>p.id===id) || [...S.rivalRosters.values()].flat().find(p=>p.id===id) || dataPlayer(id);
+ let p = knownLeaguePlayer(id,teamId) || knownLeaguePlayer(id) || dataPlayer(id);
  if (!p) return;
+ const teams = ownerLookupTeams(p);
  const back = fromClauseReport ? `<button class="link-btn" data-action="clause-smart">${icon('left')} Recomendaciones</button>` :
   teamId && S.rivalRosters.has(teamId) && S.tab==='rivals' ?
   `<button class="link-btn" data-rival="${e(teamId)}">${icon('left')} Plantilla</button>` : '';
  const dialog = overlay(modalHeader('Informe del jugador', back) + `<div class="report-body">
-  ${playerIdentity(p)}<div data-player-summary>${playerSummary(p)}</div>
-  ${profilePlayerActions(p)}
+  ${playerIdentity(p)}<div data-player-actions>${profilePlayerActions(p,teams.length>0)}</div>
+  <div data-player-summary>${playerSummary(p)}</div>
   <div data-player-report>${playerReport(p, null, [], pointsHistory(p), true)}</div>
   <details class="report-section price-calculator"><summary>Calculadora de puja</summary>
    <form id="bid-form" data-bid-player="${e(p.id)}"><label class="trade-input" for="bid-input">Importe simulado en euros
@@ -1739,6 +1830,12 @@ async function openPlayer(id, teamId = '', fromClauseReport = false) {
    </label><button class="btn small" type="submit">Calcular</button><div id="bid-result" class="hint"></div></form>
   </details>
  </div>`, true, 'Ficha de ' + p.name, true);
+ if (teams.length) void loadPlayerOwner(p,teams,dialog).then(owned=>{
+  if (!dialog.isConnected) return;
+  p = owned ?? p;
+  $('[data-player-actions]',dialog).innerHTML = profilePlayerActions(p);
+  if (owned) $('[data-player-summary]',dialog).innerHTML = playerSummary(p);
+ });
  const path = privateBase + '/player/' + encodeURIComponent(id);
  const [detail, history] = await Promise.allSettled([data(path), marketHistoryFor(id), loadFfTeam(ffTeamSlug(p))]);
  if (!dialog.isConnected) return;
@@ -1761,7 +1858,7 @@ function demoRivalRoster(id) {
    const factor = [.94,1.05,1.46,1.1,.91,1.22,1.02,1.28][(i+index)%8];
    const lockedUntil = (i+index)%3===0 ? demoAt+(2+((i*3+index)%60))*3600000 : null;
    const shieldedUntil = i===0 ? demoAt+(4+index)*3600000 : null;
-   return {...p,ownerTeamId:id,ownerName:rivals[index].name,privateId:'demo-'+p.id,
+   return {...p,ownerTeamId:id,ownerName:rivals[index].teamName,ownerManager:rivals[index].managerName,privateId:'demo-'+p.id,
     clause:Math.round(p.value*factor),
     clauseLockedUntil:lockedUntil ? new Date(lockedUntil).toISOString() : null,
     shieldedUntil:shieldedUntil ? new Date(shieldedUntil).toISOString() : null};
@@ -1822,6 +1919,7 @@ async function openRival(id) {
  };
  const main = roster => `<div class="report-body">${rivalReport(info,roster)}</div>`;
  const league = S.league;
+  const rosters = S.rivalRosters;
  // Always refresh rival rosters when opening a profile to show current release prices.
  const initial = id === S.teamId ? S.roster : S.demo ? demoRivalRoster(id) : null;
  if (initial) S.rivalRosters.set(id,initial);
@@ -1829,7 +1927,7 @@ async function openRival(id) {
  if (initial) return;
  try {
   const roster = await leagueRoster(league,info);
-  if (!sameLeague(league) || !dialog.isConnected) return;
+   if (!sameLeague(league) || S.rivalRosters!==rosters || !dialog.isConnected) return;
   S.rivalRosters.set(id,roster);
   $('.report-body',dialog).innerHTML = rivalReport(info,roster);
  } catch (error) {
@@ -2463,7 +2561,7 @@ async function refreshAll(){
  if (!sameLeague(league)) return;
  if (!S.demo) await loadPrivateLeague();
  else {
-  invalidateClauseMarket();
+  invalidateLeagueRosters();
   render();
   if (S.tab==='squad') void loadSquadStats();
  }

@@ -19,7 +19,8 @@ class FixedDate extends Date {
 
 function loadMarket() {
   const code = script.replace(/^boot\(\);$/m, '') +
-    '\n({S, historyValues, dailyMarketChanges, squadValuePeriod, squadValuation, newClauseMarket, clauseRows})';
+    '\n({S, historyValues, dailyMarketChanges, squadValuePeriod, squadValuation, newClauseMarket, clauseRows,' +
+    ' standingInfo, mergePrivate, clauseOwner, profilePlayerActions})';
   return runInNewContext(code, {
     Date: FixedDate,
     document: {addEventListener() {}},
@@ -86,4 +87,29 @@ test('clause lists respect protection dates and recommendations exclude risky or
   const [locked] = clauseRows({smart: true});
   assert.equal(locked.p.id, 'Bloqueada');
   assert.equal(locked.protection.until, Date.parse(fourHours));
+});
+
+test('clauses and player profiles keep the league manager name when the team name is missing', () => {
+  const {S, standingInfo, mergePrivate, clauseOwner, profilePlayerActions} = loadMarket();
+  const slot = {id: 'slot', playerMaster: {id: '1', nickname: 'Jugador', teamId: 'club'}, buyoutClause: 5000000};
+  S.teams = [{id: 'club', name: 'Club de LALIGA'}];
+  const standing = {teamId: 'rival', team: {user: {nickname: '  Ana & Co  '}}};
+  const [fromStanding] = mergePrivate([slot], 'roster', standingInfo(standing));
+  assert.equal(fromStanding.ownerTeamId, 'rival');
+  assert.equal(fromStanding.ownerName, null);
+  assert.equal(fromStanding.ownerManager, 'Ana & Co');
+  assert.match(clauseOwner(fromStanding), /Ana &amp; Co/);
+  assert.match(profilePlayerActions(fromStanding), /Mánager fantasy · Ana &amp; Co/);
+
+  const payload = {data: {team: {displayName: 'Equipo Rival', manager: {username: 'Carlos'}}, players: [slot]}};
+  const [fromRoster] = mergePrivate(payload, 'roster', standingInfo({teamId: 'rival'}));
+  assert.equal(fromRoster.ownerName, 'Equipo Rival');
+  assert.equal(fromRoster.ownerManager, 'Carlos');
+
+  S.standings = [standing];
+  const [listing] = mergePrivate([{...slot, discr: 'marketPlayerTeam', sellerTeamId: 'rival'}], 'market');
+  assert.equal(listing.ownerManager, 'Ana & Co');
+  const [auction] = mergePrivate([{...slot, discr: 'marketPlayerLeague', teamName: 'Club de LALIGA'}], 'market');
+  assert.equal(auction.ownerName, null);
+  assert.equal(auction.ownerManager, null);
 });
