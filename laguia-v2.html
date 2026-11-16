@@ -174,6 +174,74 @@
  .market-listings .player-cell{min-width:140px}
  .chart-tooltip strong{font-size:19px}
 }
+
+/* Valor de equipo y mercado de cláusulas */
+:root{--chart-negative:#ff8998;--chart-points:#93cff9;--chart-neutral:#a6adbb}
+.tone-gain{--tone:var(--green)}
+.tone-loss{--tone:var(--chart-negative)}
+.tone-watch{--tone:var(--orange)}
+.tone-flat{--tone:var(--chart-neutral)}
+.tone-points{--tone:var(--chart-points)}
+.signed-value{color:var(--tone);font-variant-numeric:tabular-nums;white-space:nowrap}
+.team-value-overview{margin:18px 0 0}
+.team-value-overview .team-value-summary{padding:15px 18px}
+.team-value-summary{display:flex;align-items:center;justify-content:space-between;gap:14px 24px;flex-wrap:wrap}
+.team-value-summary :is(h2,h3,p){margin:0}
+.team-value-summary :is(h2,h3){font-size:16px}
+.team-value-amount{display:block;font-size:clamp(22px,3vw,32px);line-height:1.2;margin:3px 0}
+.team-value-overview .team-value-current{font-size:16px;color:var(--text)}
+.team-value-overview .team-value-current small{display:block;color:var(--chart-neutral);font-size:13px}
+.squad-value-panel{margin:13px 18px 16px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.squad-value-panel .trend-chart{max-width:660px;margin-top:12px}
+.team-value-summary .hint,.squad-value-message,.clause-market-note,.clause-price small{color:var(--chart-neutral)}
+.chart-points,.chart-price{--chart-ink:var(--chart-points)}
+.chart-change{--chart-ink:var(--chart-neutral)}
+.trend-chart:is(.chart-points,.chart-price) .chart-area{fill:color-mix(in srgb,var(--chart-ink) 12%,transparent)}
+.trend-chart:is(.chart-points,.chart-price,.chart-change) :is(.chart-line,.chart-guide){stroke:var(--tone,var(--chart-ink))}
+.trend-chart:is(.chart-points,.chart-price,.chart-change) .chart-point{fill:var(--tone,var(--chart-ink))}
+.trend-chart .chart-point.selected{fill:var(--text);stroke:var(--tone,var(--chart-ink,var(--chart-negative)))}
+.chart-change .chart-bar{fill:var(--tone);opacity:.82}
+.chart-change .chart-point:not(.selected){opacity:0}
+.chart-zero{stroke:var(--chart-neutral);opacity:.6}
+.chart-key{display:flex;gap:8px 14px;flex-wrap:wrap;margin:8px 0 0;color:var(--chart-neutral);font-size:13px}
+.chart-key span{display:inline-flex;align-items:center;gap:5px}
+.chart-key i{width:8px;height:8px;border-radius:2px;background:var(--tone)}
+.clause-price{display:inline-grid;gap:2px;color:var(--tone,var(--text));font-variant-numeric:tabular-nums}
+.clause-price small{font-size:12px;line-height:1.35}
+.profile-stat .clause-price small{font-weight:500}
+.market-nav{flex-wrap:wrap;gap:8px 20px;overflow:visible}
+.market-nav button{min-height:36px}
+.clause-market-head{gap:10px;flex-wrap:wrap}
+.clause-market-head h2,.clause-market-head p{margin:0}
+.clause-market-toolbar select{max-width:260px}
+.clause-market-note{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;padding:0 18px;margin:12px 0;font-size:13px}
+.clause-market-table{scrollbar-width:thin}
+.clause-market-table table{min-width:805px}
+.clause-market-table :is(td,th){white-space:nowrap}
+.clause-market-table td time,.clause-market-table td small{display:block}
+.clause-market-table td .clause-price{white-space:normal;min-width:106px}
+.clause-market-table td .badge{margin-top:4px}
+.clause-unlock{font-weight:700;color:var(--orange);font-variant-numeric:tabular-nums}
+.clause-report-list{display:grid;gap:12px;margin-top:14px}
+.clause-report-card{border:1px solid var(--line);border-inline-start:3px solid var(--green);border-radius:10px;padding:13px;background:var(--panel2)}
+.clause-report-card.is-locked{border-inline-start-color:var(--orange)}
+.clause-report-card header,.clause-report-card footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.clause-report-card header .player-cell{min-width:0}
+.clause-report-card p{margin:9px 0;font-size:14px}
+.clause-report-card footer{margin-top:12px}
+.clause-report-card .report-kv{grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr))}
+.clause-report-card .report-kv dt{min-width:0}
+.clause-report-card .report-kv dd{flex-shrink:0;max-width:60%;font-variant-numeric:tabular-nums}
+.clause-report-card .clause-unlock+small{margin-inline-start:5px}
+.clause-method{padding:10px 0;color:var(--chart-neutral);font-size:13px}
+.clause-method summary{cursor:pointer;color:var(--text)}
+@media(max-width:560px){
+ .squad-value-panel{margin:12px 10px;padding:10px}
+ .team-value-summary{gap:10px 16px}
+ .clause-market-toolbar select{max-width:100%}
+ .market-nav{column-gap:13px}
+ .market-nav button{font-size:13px}
+}
 </style>
 </head>
 <body>
@@ -268,7 +336,20 @@ function cachedPublic(){if(!BOOTSTRAP)return;S.rawPlayers=BOOTSTRAP.players;S.te
 async function loadPublic(){const jobs=[data('/v1/competition/1/players'),data('/v3/teams-master'),api('/api/ff'),data('/v1/competition/1/week/current')];const r=await Promise.allSettled(jobs);const errors=[];if(r[0].status==='fulfilled')S.rawPlayers=r[0].value;else errors.push('Catálogo de jugadores');if(r[1].status==='fulfilled')S.teams=collection(r[1].value);else errors.push('Equipos');if(r[2].status==='fulfilled'){S.probabilities=r[2].value.players||{};S.ffUpdated=r[2].value.updatedAt}else errors.push('Titularidad');if(r[3].status==='fulfilled')S.week=r[3].value;else errors.push('Jornada');S.live=r[0].status==='fulfilled';if(S.live)S.dataAt=new Date().toISOString();S.errors=errors;normalizeAll();if(S.demo&&S.league)seedDemo();if(S.screen==='app')render();return errors}
 async function boot(){cachedPublic();dataReady=loadPublic();try{S.auth=await api('/api/auth');if(S.auth.authenticated){S.screen='leagues';render();await loadLeagues()}else render()}catch{render()} }
 function toast(message,error=false){clearTimeout(toastTimer);$('#toast-root').innerHTML=`<div class="toast ${error?'error':''}">${icon(error?'alert':'check')}<span>${e(message)}</span></div>`;toastTimer=setTimeout(()=>$('#toast-root').innerHTML='',4200)}
-function render(){const app=$('#app');if(S.screen==='auth')app.innerHTML=authView();else if(S.screen==='leagues')app.innerHTML=leaguesView();else app.innerHTML=shellView();updateCountdown();if(S.screen==='app'&&S.tab==='squad')paintLineupSelection();if(S.screen==='app'&&S.tab==='market')void loadMarketTrends();}
+function render(){
+ const app=$('#app');
+ if(S.screen==='auth') app.innerHTML=authView();
+ else if(S.screen==='leagues') app.innerHTML=leaguesView();
+ else app.innerHTML=shellView();
+ updateCountdown();
+ if(S.screen!=='app') return;
+ if(S.tab==='squad') paintLineupSelection();
+ if(['squad','overview'].includes(S.tab)) void loadSquadMarketHistory();
+ if(S.tab==='market') {
+  if(isClauseTab()) void loadClauseMarket();
+  else void loadMarketTrends();
+ }
+}
 function authView(){return `<main class="auth-layout"><section class="auth-story">${brand()}<div class="story-copy"><div class="eyebrow"><span class="dot"></span> EL FÚTBOL SE SIENTE. LA LIGA SE GANA.</div><h1>Tu intuición.<br>Con datos.<em>Tu ventaja.</em></h1><p>El talento está en tu equipo.<br>La diferencia, en tus decisiones.</p></div><div class="story-features"><span>${icon('shield')} Tu cuenta, protegida</span><span>${icon('chart')} Datos que importan</span><span>${icon('spark')} Decisiones inteligentes</span></div></section><section class="auth-main"><div class="auth-version">LA NUEVA FORMA DE JUGAR · V2.0</div><div class="auth-card"><div class="auth-mark">${icon('trophy')}</div><h2>${S.loginStep?'Un último paso.':'Aquí empieza tu próxima victoria.'}</h2><p class="auth-intro">${S.loginStep?'Completa el acceso oficial y conecta tus ligas.':'Conecta tu cuenta de LALIGA Fantasy.<br>Tus ligas, tu equipo y tu ventaja. Todo en un lugar.'}</p>${S.loginStep?loginFlow():`<button class="btn google full" data-action="login"><span class="google-mark" aria-hidden="true">G</span> Conectar con LALIGA Fantasy ${icon('external')}</button><label class="auth-remember"><input id="remember" type="checkbox" ${S.remember?'checked':''}><span>Recordarme durante 7 días<small>Renovación automática si LALIGA mantiene el permiso.</small></span></label><div class="auth-secure">${icon('lock')}<span>El acceso se realiza en la página oficial de LALIGA.<br>Tus contraseñas y tokens no se muestran en esta web.</span></div><div class="auth-note">${icon('info')} Primera conexión: recomendamos un ordenador. El acceso oficial usa una redirección de la app; te guiaremos para completarla.</div><div class="or">PRIMERO, ECHA UN VISTAZO</div><button class="btn subtle full" data-action="demo">Explorar la demo ${icon('arrow')}</button>`}</div><p class="auth-foot">Herramienta independiente. Sin afiliación oficial con LALIGA.<br>Datos de LALIGA Fantasy y FútbolFantasy.</p></section></main>`}
 function loginFlow(){return `<div class="login-flow"><div class="step"><b>1</b><span>En la pestaña oficial que se ha abierto, elige <strong>Google</strong> o tu método habitual y termina de identificarte.</span></div><div class="step"><b>2</b><span>En esa pestaña, abre <strong>F12 → Red / Network</strong>. Busca la solicitud <strong>authredirect://com.lfp.laligafantasy</strong> y copia su URL completa con <strong>code=</strong> y <strong>state=</strong>.</span></div><div class="step"><b>3</b><span>Pégala aquí. El código se canjea una sola vez en el servidor.</span></div><form id="login-form"><label class="screen-reader" for="redirect-input">URL de redirección de LALIGA</label><textarea id="redirect-input" name="redirect" required autocomplete="off" spellcheck="false" placeholder="authredirect://com.lfp.laligafantasy?code=…&state=…"></textarea><div id="login-error" role="alert"></div><button class="btn primary full" style="margin-top:12px" type="submit">Conectar mis ligas ${icon('arrow')}</button></form><button class="link-btn" data-action="restart-login">${icon('refresh')} Volver a abrir el acceso oficial</button><p class="hint">La autorización dura 15 minutos. Si no ves la solicitud, activa «Conservar registro» en Red y repite el acceso. En móvil, la app oficial puede interceptar la redirección.</p><button class="link-btn" data-action="back-auth">${icon('left')} Volver</button></div>`}
 async function completeLogin(form){const button=$('button[type=submit]',form),input=$('textarea',form);button.disabled=true;button.textContent='Verificando con LALIGA…';$('#login-error').innerHTML='';try{const auth=await api('/api/auth',{method:'POST',body:JSON.stringify({redirect:input.value.trim()})});input.value='';S.auth=auth;S.demo=false;S.screen='leagues';S.loginStep=false;render();await loadLeagues();toast(auth.renewable?'Cuenta conectada. Renovación automática activada.':'Cuenta conectada. LALIGA no ha entregado permiso de renovación.')}catch(error){$('#login-error').innerHTML=`<div class="error-inline" style="margin-top:10px">${e(error.message)}</div>`;button.disabled=false;button.innerHTML='Conectar mis ligas '+icon('arrow')}}
@@ -290,6 +371,8 @@ const fmtInteger = value => num(value, 0);
 const deltaMoney = value => value === null || value === undefined ? '—'
  : (value > 0 ? '+' : '') + fmtFull(value);
 const fmtPercent = value => value === null || value === undefined ? '—' : num(value, 0) + '%';
+const valueTone = value => value > 0 ? 'tone-gain' : value < 0 ? 'tone-loss' : 'tone-flat';
+const signedMoney = value => `<span class="signed-value ${valueTone(value)}">${deltaMoney(value)}</span>`;
 
 const ffTeams = new Map();
 const ffInFlight = new Map();
@@ -400,7 +483,7 @@ async function enterLeague(id) {
   tab: 'overview', screen: 'app', leagueLoading: true, errors: [], privateErrors: [], roster: [],
   standings: [], market: [], lineup: null, savedLineup:null, lineupDirty:false, lineupPick:null, lineupSaving:false, formation: 'auto', locked: [], chat: [], balance: null,
   teamId: null, reward: null, marketTab: 'league', marketSeller:'grouped', page: 0, search: '', position: 'all',
-  rivalRosters: new Map(), recentTrades: new Map(),
+  rivalRosters: new Map(), recentTrades: new Map(), squadValue: null, clauseMarket: newClauseMarket(),
  });
  render();
  await dataReady;
@@ -474,8 +557,9 @@ async function loadPrivateLeague() {
  S.budget = S.balance ?? 0;
  S.privateErrors = failures;
  S.leagueLoading = false;
+ invalidateClauseMarket();
  render();
- if (S.tab === 'squad') {void loadSquadStats();void loadSquadMarketHistory()}
+ if (S.tab === 'squad') void loadSquadStats();
 }
 const nav=(key,name,ico,extra='')=>`<button class="nav-item ${S.tab===key?'active':''}" data-tab="${key}" ${S.tab===key?'aria-current="page"':''}>${icon(ico)}<span>${name}</span>${extra}</button>`;
 function shellView(){const title=views[S.tab]?.[0]||'Resumen';return `<aside class="sidebar" id="sidebar">${brand()}<button class="league-switch" data-action="leagues">${icon('trophy')}<span><strong>${e(S.league?.name)}</strong><small>${S.demo?'Liga de demostración':'LALIGA Fantasy'}</small></span>${icon('down','chevron')}</button><p class="nav-label">MI COMPETICIÓN</p><nav class="nav-group" aria-label="Mi competición">${nav('overview','Resumen','grid')}${nav('squad','Mi plantilla','shirt')}${nav('market','Mercado','arrows')}${nav('rivals','Rivales','users')}${nav('calendar','Calendario','calendar')}</nav><p class="nav-label">MI VENTAJA</p><nav class="nav-group" aria-label="Mi ventaja">${nav('coach','Asistente','spark','<span class="nav-new">SMART</span>')}${nav('radar','Radar inteligente','radar')}${nav('alerts','Alertas','bell',alertItems().length?`<span class="nav-count">${alertItems().length}</span>`:'')}</nav><div class="side-bottom"><div class="side-tip"><span>${icon('bolt')} Cada decisión suma.</span><p>Descubre dónde puedes ganar puntos esta jornada.</p><button class="link-btn" data-tab="coach">Consultar al asistente ${icon('arrow')}</button></div><div class="side-profile"><div class="avatar-letter">${S.demo?'TU':e((S.auth.managerName||'M').slice(0,2).toUpperCase())}</div><div><div class="name">${S.demo?'Tu equipo':e(S.auth.managerName||'Mi cuenta')}</div><small>${S.demo?'Explorando la demo':'Cuenta conectada'}</small></div><button data-tab="settings" aria-label="Ajustes">${icon('sliders')}</button></div></div></aside><div class="shell"><header class="topbar"><div style="display:flex;align-items:center;gap:11px"><button class="icon-btn mobile-menu" data-action="menu" aria-label="Abrir navegación">${icon('menu')}</button><div class="breadcrumb"><span>Mi competición</span>${icon('chevron')}<strong>${title}</strong></div></div><div class="top-actions"><span class="badge">${S.live?'<span class="dot green"></span> Datos sincronizados':'<span class="dot amber"></span> Última copia disponible'}</span><button class="icon-btn" data-action="global-search" aria-label="Buscar jugadores">${icon('search')}</button><button class="icon-btn" data-tab="alerts" aria-label="Ver alertas">${icon('bell')}</button><span class="divider"></span><button class="top-round" data-action="my-profile" aria-label="Mi perfil">${S.demo?'TU':e((S.auth.managerName||'M').slice(0,2).toUpperCase())}</button></div></header><main class="content" id="main-content">${S.demo?`<div class="demo-strip">${icon('info')} <span>Demo · Ligas y saldo de ejemplo. Estadísticas públicas ${S.live?'consultadas en la API':'de la última copia'}.</span><button data-action="connect">Conectar mi cuenta ${icon('arrow')}</button></div>`:''}${S.errors.length?`<div class="error-inline" style="margin-bottom:15px">Sin actualizar: ${e(S.errors.join(', '))}. Se conserva la última copia disponible. <button class="link-btn" data-action="refresh">Reintentar</button></div>`:''}${S.privateErrors?.length?`<div class="error-inline" style="margin-bottom:15px">${S.privateErrors.map(e).join('<br>')} <button class="link-btn" data-action="refresh">Reintentar</button></div>`:''}${S.players.some(p=>p.probabilityMismatch)?`<div class="model-note" style="margin:0 0 16px"><strong>Titularidad pendiente de la jornada actual.</strong> La fuente está publicando otra jornada. Sus porcentajes siguen identificados por fecha y jornada, y se excluyen de las proyecciones actuales.</div>`:""}${pageHead()}${S.leagueLoading?'<div class="panel loading">Cargando tu liga y preparando el análisis…</div>':pageView()}<div class="source-line"><span><a href="https://fantasy.laliga.com/" target="_blank" rel="noopener">LALIGA Fantasy</a> · <a href="https://www.futbolfantasy.com/" target="_blank" rel="noopener">FútbolFantasy</a> · ${S.dataAt?'Consulta '+new Date(S.dataAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'Pendiente de sincronizar'}</span><span>Las proyecciones son estimaciones estadísticas, no resultados garantizados.</span></div></main><footer class="app-footer">LAGUÍA · Fantasy Intelligence · Creada para los que juegan cada jornada.</footer></div><nav class="mobile-nav" aria-label="Navegación principal">${[['overview','Inicio','grid'],['squad','Plantilla','shirt'],['market','Mercado','arrows'],['coach','Asistente','spark'],['radar','Radar','radar']].map(([k,n,i])=>`<button class="${S.tab===k?'active':''} ${k==='coach'?'coach-nav':''}" data-tab="${k}">${icon(i)}<span>${n}</span></button>`).join('')}</nav>`}
@@ -492,7 +576,7 @@ function formHtml(p){return `<span class="form" aria-label="Últimos puntos: ${p
 function probHtml(p){return `<span class="prob ${p.prob!==null&&p.prob<65?'low':''}" title="FútbolFantasy · Jornada ${p.probWeek||'—'}">${p.prob===null?'Sin dato':num(p.prob,0)+'%'}</span>`}
 function pitchHtml(lineup=bestLineup(),showMetric=false){if(!lineup)return `<div class="empty-state">${icon('shirt')}<h3>Hace falta un once completo</h3><p>Tu plantilla necesita al menos un portero y suficientes jugadores en cada posición para formar un once válido.</p></div>`;const captain=lineup.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];return `<div class="pitch"><div class="pitch-lines"><div class="penalty top"></div><div class="penalty bottom"></div></div><div class="pitch-players">${[4,3,2,1].map(pos=>`<div class="pitch-row">${lineup.players.filter(p=>p.position===pos).map(p=>`<button class="pitch-player" data-player="${e(p.id)}" ${showMetric?`draggable="true" data-lineup-drag="${e(p.id)}" data-lineup-slot="${e(p.id)}" data-lineup-position="${p.position}"`:''} title="${e(p.name)} · ${num(p.expected)} puntos estimados">${p.id===captain?.id?'<span class="captain-dot" title="Mayor proyección">★</span>':''}${p.image?`<img src="${e(p.image)}" alt="" loading="lazy" draggable="false">`:`<span class="shirt">${icon('shirt')}</span>`}<span class="pitch-name"><strong>${e(p.name)}${isShielded(p)?icon('shield','pitch-shield'):''}</strong>${showMetric?'':`<em>${num(p.expected)}</em>`}</span>${showMetric?squadPitchMetrics(p):`<span class="pitch-prob">${p.prob===null?'Sin probabilidad':p.prob+'% titular'}</span>`}</button>`).join('')}</div>`).join('')}</div></div>`}
 function statCard(label,value,foot,ico,color='',mini=false){return `<article class="stat-card"><div class="stat-top"><span>${label}</span>${icon(ico)}</div><div class="stat-value ${color}">${value}</div><div class="stat-foot">${foot}</div>${mini?'<svg class="mini-line" viewBox="0 0 65 27" fill="none"><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9" stroke="#5adea5" stroke-width="1.5"/><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9v24H1" fill="#5adea508"/></svg>':''}</article>`}
-function overviewView(){const lineup=bestLineup();const r=rank(),points=ownPoints(),leader=S.standings[0];const leaderPoints=standingInfo(leader).points;const distance=points!==null&&leaderPoints!==null?leaderPoints-points:null;const actions=actionItems();return `<section class="command-banner" data-week="${S.week.weekNumber||''}"><div class="command-text"><div class="eyebrow">${icon('spark')} TU VENTAJA ESTA JORNADA</div><h2>${lineup?'Un buen once es solo el principio.':'Tu próxima victoria empieza aquí.'}</h2><p>${S.roster.length?`Hemos analizado tus ${S.roster.length} jugadores. ${alertItems().length?'Hay '+alertItems().length+' señales que conviene revisar.':'Tu plantilla está lista para que tomes la siguiente decisión.'}`:'Conecta tu equipo para descubrir dónde ganar puntos.'}</p><button class="btn primary" data-tab="squad">Revisar mi alineación ${icon('arrow')}</button></div><div class="deadline"><small>PRÓXIMO CIERRE DE ONCE</small><div class="time" id="countdown">— : — : —</div><div class="units"><span>DÍAS</span><span>HORAS</span><span>MINUTOS</span></div></div></section>${rewardView()}<div class="stats-grid">${statCard('Puntos totales',num(points,0),S.demo?'Liga de demostración':'Acumulado en tu liga','trophy','',true)}${statCard('Posición en la liga',r?r+'<small> / '+(S.demo?S.league.members:S.standings.length)+'</small>':'—',distance!==null&&r>1?`<span class="green">${icon('trend')} A ${num(distance,0)} puntos del líder</span>`:r===1?'<span class="green">Lideras tu liga</span>':'Esperando clasificación','chart')}${statCard('Presupuesto disponible',S.balance!==null?num(S.balance/1e6,1)+' <small>M €</small>':'—',S.demo?'Saldo de ejemplo':'Saldo de tu equipo','wallet')}${statCard('Proyección de tu once',lineup?num(lineup.score)+' <small>pts</small>':'—',`<span class="${lineup?.incomplete?'amber':'green'}">${icon('spark')} ${lineup?.incomplete?'Faltan probabilidades':'Estimación, no garantía'}</span>`,'target')}</div><div class="section-top"><h2>${icon('spark')} Tu siguiente jugada</h2><small>Basada en tus datos</small></div><div class="ai-grid">${actions.map(a=>`<article class="action-card"><div class="action-top"><span class="action-icon ${a.tone}">${icon(a.icon)}</span><span class="action-priority">${a.label}</span></div><h3>${e(a.title)}</h3><p>${e(a.text)}</p><div class="action-bottom"><span class="${a.tone==='danger'?'amber':''}">${e(a.metric)}</span><button class="link-btn" ${a.player?'data-player="'+e(a.player)+'"':'data-tab="'+a.tab+'"'}>${a.cta} ${icon('arrow')}</button></div></article>`).join('')}</div><div class="dashboard-grid"><section class="panel lineup-panel"><div class="panel-head"><div><h2>Tu once recomendado <span class="formation-tag">${lineup?.formation||'—'}</span></h2><small>Proyección · Jornada ${S.week.weekNumber||'—'}</small></div><button class="link-btn" data-tab="squad">Gestionar ${icon('arrow')}</button></div>${pitchHtml(lineup)}<div class="pitch-footer"><span>${icon('shield')} ${lineup?.incomplete?'Consulta los datos pendientes':'Optimizado según media y titularidad'}</span><span class="green">${lineup?num(lineup.score)+' pts est.':'—'}</span></div></section><section class="panel"><div class="panel-head"><h2>En tu punto de mira</h2><button class="link-btn" data-tab="alerts">Ver todo ${icon('arrow')}</button></div><div class="insight-list">${insightItems().map(i=>`<div class="insight-item"><div class="insight-symbol" style="color:${i.color}">${icon(i.icon)}</div><div><h3>${e(i.title)}</h3><p>${e(i.text)}</p><time>${e(i.source)}</time></div>${i.tag?`<span class="badge ${i.tone}">${e(i.tag)}</span>`:''}</div>`).join('')}</div></section></div><section class="panel dashboard-bottom"><div class="panel-head"><h2>${icon('arrows')} Oportunidades del mercado</h2><button class="link-btn" data-tab="market">Explorar mercado ${icon('arrow')}</button></div>${tableHtml(recommendations(S.roster,available(),S.balance??Infinity).filter(r=>r.gain>0).slice(0,4).map(r=>r.player),'mini')}</section>`}
+function overviewView(){const lineup=bestLineup();const r=rank(),points=ownPoints(),leader=S.standings[0];const leaderPoints=standingInfo(leader).points;const distance=points!==null&&leaderPoints!==null?leaderPoints-points:null;const actions=actionItems();return `<section class="command-banner" data-week="${S.week.weekNumber||''}"><div class="command-text"><div class="eyebrow">${icon('spark')} TU VENTAJA ESTA JORNADA</div><h2>${lineup?'Un buen once es solo el principio.':'Tu próxima victoria empieza aquí.'}</h2><p>${S.roster.length?`Hemos analizado tus ${S.roster.length} jugadores. ${alertItems().length?'Hay '+alertItems().length+' señales que conviene revisar.':'Tu plantilla está lista para que tomes la siguiente decisión.'}`:'Conecta tu equipo para descubrir dónde ganar puntos.'}</p><button class="btn primary" data-tab="squad">Revisar mi alineación ${icon('arrow')}</button></div><div class="deadline"><small>PRÓXIMO CIERRE DE ONCE</small><div class="time" id="countdown">— : — : —</div><div class="units"><span>DÍAS</span><span>HORAS</span><span>MINUTOS</span></div></div></section>${rewardView()}<div class="stats-grid">${statCard('Puntos totales',num(points,0),S.demo?'Liga de demostración':'Acumulado en tu liga','trophy','',true)}${statCard('Posición en la liga',r?r+'<small> / '+(S.demo?S.league.members:S.standings.length)+'</small>':'—',distance!==null&&r>1?`<span class="green">${icon('trend')} A ${num(distance,0)} puntos del líder</span>`:r===1?'<span class="green">Lideras tu liga</span>':'Esperando clasificación','chart')}${statCard('Presupuesto disponible',S.balance!==null?num(S.balance/1e6,1)+' <small>M €</small>':'—',S.demo?'Saldo de ejemplo':'Saldo de tu equipo','wallet')}${statCard('Proyección de tu once',lineup?num(lineup.score)+' <small>pts</small>':'—',`<span class="${lineup?.incomplete?'amber':'green'}">${icon('spark')} ${lineup?.incomplete?'Faltan probabilidades':'Estimación, no garantía'}</span>`,'target')}</div><section class="panel team-value-overview" id="overview-team-value">${overviewTeamValue()}</section><div class="section-top"><h2>${icon('spark')} Tu siguiente jugada</h2><small>Basada en tus datos</small></div><div class="ai-grid">${actions.map(a=>`<article class="action-card"><div class="action-top"><span class="action-icon ${a.tone}">${icon(a.icon)}</span><span class="action-priority">${a.label}</span></div><h3>${e(a.title)}</h3><p>${e(a.text)}</p><div class="action-bottom"><span class="${a.tone==='danger'?'amber':''}">${e(a.metric)}</span><button class="link-btn" ${a.player?'data-player="'+e(a.player)+'"':'data-tab="'+a.tab+'"'}>${a.cta} ${icon('arrow')}</button></div></article>`).join('')}</div><div class="dashboard-grid"><section class="panel lineup-panel"><div class="panel-head"><div><h2>Tu once recomendado <span class="formation-tag">${lineup?.formation||'—'}</span></h2><small>Proyección · Jornada ${S.week.weekNumber||'—'}</small></div><button class="link-btn" data-tab="squad">Gestionar ${icon('arrow')}</button></div>${pitchHtml(lineup)}<div class="pitch-footer"><span>${icon('shield')} ${lineup?.incomplete?'Consulta los datos pendientes':'Optimizado según media y titularidad'}</span><span class="green">${lineup?num(lineup.score)+' pts est.':'—'}</span></div></section><section class="panel"><div class="panel-head"><h2>En tu punto de mira</h2><button class="link-btn" data-tab="alerts">Ver todo ${icon('arrow')}</button></div><div class="insight-list">${insightItems().map(i=>`<div class="insight-item"><div class="insight-symbol" style="color:${i.color}">${icon(i.icon)}</div><div><h3>${e(i.title)}</h3><p>${e(i.text)}</p><time>${e(i.source)}</time></div>${i.tag?`<span class="badge ${i.tone}">${e(i.tag)}</span>`:''}</div>`).join('')}</div></section></div><section class="panel dashboard-bottom"><div class="panel-head"><h2>${icon('arrows')} Oportunidades del mercado</h2><button class="link-btn" data-tab="market">Explorar mercado ${icon('arrow')}</button></div>${tableHtml(recommendations(S.roster,available(),S.balance??Infinity).filter(r=>r.gain>0).slice(0,4).map(r=>r.player),'mini')}</section>`}
 function actionItems(){const lineup=bestLineup();const risky=S.roster.filter(p=>p.prob!==null&&!p.probabilityMismatch&&p.prob<50).sort((a,b)=>a.prob-b.prob)[0];const rec=recommendations(S.roster,available(),S.balance??Infinity).find(r=>r.gain>0);const value=available().filter(p=>p.value>0&&p.prob>=80).sort((a,b)=>b.efficiency-a.efficiency)[0];return [{icon:'shield',tone:risky?'danger':'',label:risky?'REVISA TU PLANTILLA':'ALINEACIÓN',title:risky?'Evita un posible cero':'Un once con fundamento',text:risky?`${risky.name} tiene un ${risky.prob}% de probabilidad de ser titular. Valora una alternativa.`:lineup?`${lineup.formation} es la formación con más puntos esperados para tu plantilla.`:'Revisa las posiciones disponibles antes del cierre.',metric:risky?'Atención a la titularidad':lineup?num(lineup.score)+(lineup.incomplete?' pts · parcial':' pts estimados'):'Completa tu once',cta:'Revisar once',tab:'squad'}, {icon:'trend',tone:'',label:'OPORTUNIDAD',title:rec?'Un fichaje que puede sumar':'Busca rendimiento por euro',text:rec?`${rec.player.name}${rec.replace?' por '+rec.replace.name:''}: una mejora estimada dentro de tu presupuesto.`:'Ordena el mercado por eficiencia para encontrar jugadores asequibles.',metric:rec?'+'+num(rec.gain)+' pts est.':'Radar de valor',cta:rec?'Ver jugador':'Ver mercado',player:rec?.player.id,tab:'market'}, {icon:'bolt',tone:'gold',label:'VALOR INTELIGENTE',title:value?'El precio también juega':'Prepara tu estrategia',text:value?`${value.name}: ${num(value.expected)} puntos estimados por ${formatMoney(value.value)}. Compara antes de pujar.`:'Tu asistente cruza media, forma reciente y probabilidades publicadas.',metric:value?num(value.efficiency,2)+' pts / M €':'Datos, después decisiones',cta:value?'Analizar':'Abrir asistente',player:value?.id,tab:'coach'}]}
 function insightItems(){const items=[];const risk=S.roster.filter(p=>p.prob!==null&&!p.probabilityMismatch&&p.prob<50);if(risk.length)items.push({icon:'alert',title:'No regales un puesto',text:risk.slice(0,2).map(p=>p.name+' ('+p.prob+'%)').join(' y ')+'. Revisa sus alternativas antes de cerrar el once.',source:'FútbolFantasy · J'+(risk[0].probWeek||'—'),tag:'RIESGO',tone:'warn',color:'#f5bc65'});const top=bestLineup()?.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];if(top)items.push({icon:'target',title:'Tu referencia esta jornada',text:`${top.name} tiene la mayor proyección de tu once: ${num(top.expected)} puntos estimados.`,source:'Modelo estadístico LAGUÍA',tag:'DESTACADO',tone:'good',color:'#5adea5'});items.push({icon:'clock',title:'El once se prepara antes del cierre',text:S.week.openingWeekDate?'La jornada empieza el '+dateText(S.week.openingWeekDate)+'. Comprueba tu saldo y las últimas probabilidades.':'Consulta el calendario oficial para confirmar el comienzo de la jornada.',source:'Calendario LALIGA Fantasy',tag:'J'+(S.week.weekNumber||'—'),color:'#a3adc5'});items.push({icon:'radar',title:S.watch.length?'Tu lista sigue en juego':'Ojos en el mercado',text:S.watch.length?'Sigues a '+S.watch.length+' jugadores. Encuéntralos juntos en Mercado → Seguimiento.':'Marca la estrella de cualquier jugador para seguirlo y comparar tus objetivos.',source:'Tu espacio de seguimiento · este dispositivo',color:'#ad9bc8'});return items.slice(0,4)}
 function tableHtml(players,mode='full'){const listings=mode==='league';if(!players.length)return `<div class="empty-state">${icon('search')}<h3>${mode==='mini'?'Sin mejoras claras dentro de tu saldo':'No hay jugadores con estos filtros'}</h3><p>${mode==='mini'?'Amplía el análisis en Mercado. La mejor decisión también puede ser esperar.':'Prueba con otra búsqueda, otra posición o elimina algún filtro.'}</p></div>`;return `<div class="table-scroll ${mode==='mini'?'':'full-table'}"><table class="${listings?'market-listings':''}"><thead><tr><th>JUGADOR</th><th>${listings?'PRECIO DE SALIDA':'VALOR'}</th>${mode!=='mini'?'<th>VARIACIÓN DIARIA</th>':''}<th>PUNTOS</th><th>ÚLTIMAS 5</th><th>TITULAR</th><th>PROYECCIÓN</th>${listings?'<th>MERCADO</th>':''}<th><span class="screen-reader">Seguimiento</span></th></tr></thead><tbody>${players.map(p=>`<tr><td>${playerCell(p)}</td><td>${formatMoney(marketPrice(p))}</td>${mode!=='mini'?marketTrendCell(p):''}<td><span class="points">${num(p.points,0)}</span> <small style="font-size:11px">· ${num(p.average)} med.</small></td><td>${formHtml(p)}</td><td>${probHtml(p)}</td><td class="xp">${num(p.expected)} <small style="font-size:11px">pts est.</small></td>${listings?`<td class="market-op-cell"><strong>${e(listingStatus(p))}</strong>${dated(p.expires)?`<small class="listing-status">Hasta ${e(dateOrDash(p.expires))}</small>`:''}${listingButton(p)}</td>`:''}<td><button class="watch ${S.watch.includes(p.id)?'on':''}" data-watch="${e(p.id)}" aria-label="${S.watch.includes(p.id)?'Dejar de seguir':'Seguir a'} ${e(p.name)}" aria-pressed="${S.watch.includes(p.id)}">${icon('star')}</button></td></tr>`).join('')}</tbody></table></div>`}
@@ -503,6 +587,296 @@ const marketPrice = player => player.price ?? player.value;
 const marketDailyChange = player => ffFor(player)?.dailyChange ?? null;
 const marketTrendSort = () => ['rise','fall'].includes(S.sort);
 const sellerOrder = player => isLeagueListing(player) ? 0 : isManagerListing(player) ? 1 : 2;
+const isClauseTab = () => ['clauses-open','clauses-locked'].includes(S.marketTab);
+const lockedClauseTab = () => S.marketTab === 'clauses-locked';
+
+function newClauseMarket() {
+ return {rosters:new Map(),quotes:new Map(),failed:[],updatedAt:0,nextUnlock:Infinity,loading:false,
+  sort:'score',owner:'all',position:'all',recommended:false,demoAt:Date.now()};
+}
+
+function invalidateClauseMarket() {
+ S.clauseMarket = {...S.clauseMarket,updatedAt:0,nextUnlock:Infinity,loading:false};
+}
+
+function clauseTeams() {
+ const teams = new Map(S.standings.map(standingInfo).filter(team=>team.id).map(team=>[team.id,team]));
+ if (S.teamId && !teams.has(S.teamId)) teams.set(S.teamId,{id:S.teamId,name:'Tu equipo'});
+ return [...teams.values()];
+}
+
+function clauseProtection(p, now = Date.now()) {
+ const shieldEnd = Date.parse(p.shieldedUntil);
+ const lockEnd = Date.parse(p.clauseLockedUntil);
+ const shielded = p.shielded || shieldEnd>now;
+ if (shielded && !(shieldEnd>now)) return {locked:true,until:null};
+ const until = Math.max(shieldEnd>now?shieldEnd:0,lockEnd>now?lockEnd:0);
+ return {locked:until>0,until:until||null,shieldExpiresLast:until===shieldEnd};
+}
+
+const clauseKey = p => p.ownerTeamId+'/'+p.id;
+const clausePremium = p => p.clause>0 && p.value>0 ? (p.clause-p.value)/p.value*100 : null;
+const scoreRange = value => Math.max(0,Math.min(100,value));
+const signedPercent = value => (value>0?'+':'')+num(value,1)+' %';
+
+function clausePriceHtml(p, compact = false) {
+ if (!(p.clause>0)) return '—';
+ const premium = clausePremium(p);
+ const band = premium===null ? ['', ''] : premium<=-10 ? ['tone-gain','Muy barata']
+  : premium<-2 ? ['tone-gain','Barata'] : premium<=10 ? ['tone-flat','En mercado']
+  : premium<30 ? ['tone-watch','Cara'] : ['tone-loss','Muy cara'];
+ return `<span class="clause-price ${band[0]}">${compact?formatMoney(p.clause):fmtFull(p.clause)}
+  ${premium===null?'':`<small>${band[1]} · ${signedPercent(premium)}</small>`}</span>`;
+}
+
+async function leagueRoster(league, team) {
+ if (S.demo) return demoRivalRoster(team.id);
+ const raw = await data(privateBase+'/leagues/'+encodeURIComponent(league.id)+'/teams/'+encodeURIComponent(team.id));
+ return mergePrivate(raw,'roster',team);
+}
+
+async function loadClauseMarket(force = false) {
+ const state = S.clauseMarket;
+ const league = S.league;
+ if (!state || !$('#clause-market-results') || S.leagueLoading || !S.teamId || state.loading ||
+     (!force && state.updatedAt+120000>Date.now())) return;
+ const current = () => sameLeague(league) && S.clauseMarket===state;
+ const teams = clauseTeams();
+ const rosters = new Map();
+ const failed = [];
+ state.loading = true;
+ paintClauseMarket();
+ for (let start=0;start<teams.length && current();start+=4) {
+  const batch = teams.slice(start,start+4);
+  const results = await Promise.allSettled(batch.map(team =>
+   team.id===S.teamId && S.roster.length ? S.roster : leagueRoster(league,team)));
+  if (!current()) return;
+  results.forEach((result,index)=>{
+   const team = batch[index];
+   if (result.status==='fulfilled') {
+    rosters.set(team.id,result.value);
+    if (team.id!==S.teamId) S.rivalRosters.set(team.id,result.value);
+   } else failed.push(team.name);
+  });
+ }
+ if (!current()) return;
+ const players = [...rosters.values()].flat().filter(p=>p.clause>0);
+ const now = Date.now();
+ const quotes = new Map();
+ let nextUnlock = Infinity;
+ for (const p of players) {
+  const prior = state.quotes.get(clauseKey(p));
+  quotes.set(clauseKey(p),prior?.amount===p.clause ? {...prior,last:now} : {amount:p.clause,first:now,last:now});
+  nextUnlock = Math.min(nextUnlock,clauseProtection(p,now).until ?? Infinity);
+ }
+ const slugs = [...new Set(players.map(ffTeamSlug).filter(Boolean))];
+ for (let start=0;start<slugs.length && current();start+=4) {
+  await Promise.all(slugs.slice(start,start+4).map(loadFfTeam));
+ }
+ if (!current()) return;
+ Object.assign(state,{rosters,failed,quotes,nextUnlock,updatedAt:now,loading:false});
+ paintClauseMarket();
+}
+
+function clauseInsights(p, now = Date.now()) {
+ const protection = clauseProtection(p,now);
+ const premium = clausePremium(p);
+ const ff = ffFor(p);
+ const prob = numberOrNull(percentFor(p,ff));
+ const projected = estimate({...p,prob,probabilityMismatch:false});
+ const change = ff?.dailyChange ?? null;
+ const remaining = S.balance===null ? null : S.balance-p.clause;
+ const score = premium===null || projected===null ? null : Math.round(
+  .45*scoreRange(65-premium*2) + .30*scoreRange(projected/7*100) + .20*prob +
+  .05*scoreRange(change===null?50:50+change/p.value*1000)
+ );
+ const priceFits = premium!==null && (premium<=12 || (premium<=20 && projected>=5.5 && prob>=80));
+ const recommended = !!(p.privateId && !ownPlayer(p) && priceFits && prob>=60 && projected>=2.8 &&
+  score>=55 && (remaining===null || remaining>=0) && (!protection.locked || protection.until) &&
+  !['injured','suspended','doubtful'].includes(p.status));
+ const soon = protection.until && protection.until-now<=86400000;
+ return {p,ff,prob,projected,change,remaining,score,recommended,protection,priority:(score??-1)+(soon?5:0)};
+}
+
+function clauseRows({smart = false} = {}) {
+ const state = S.clauseMarket;
+ const search = nameKey(S.search);
+ const now = Date.now();
+ const locked = lockedClauseTab();
+ const orderByName = (a,b) => a.p.name.localeCompare(b.p.name,'es');
+ const sort = {
+  score:(a,b)=>b.priority-a.priority,
+  priceAsc:(a,b)=>a.p.clause-b.p.clause,
+  priceDesc:(a,b)=>b.p.clause-a.p.clause,
+  name:orderByName,
+  points:(a,b)=>b.p.points-a.p.points,
+  unlock:(a,b)=>(a.protection.until??Infinity)-(b.protection.until??Infinity),
+ };
+ const order = smart || (!locked && state.sort==='unlock') ? 'score' : state.sort;
+ return [...state.rosters.values()].flat()
+  .filter(p=>p.clause>0 && (smart || (
+   (state.owner==='all' || state.owner===p.ownerTeamId) &&
+   (state.position==='all' || p.position===Number(state.position)) &&
+   (!search || [p.name,p.fullName,p.team,p.shortTeam,p.ownerName].some(value=>nameKey(value).includes(search)))
+  )))
+  .map(p=>clauseInsights(p,now))
+  .filter(row=>row.protection.locked===locked && (!(smart || state.recommended) || row.recommended))
+  .sort((a,b)=>sort[order](a,b) || orderByName(a,b));
+}
+
+function clauseRemaining(until) {
+ const minutes = Math.ceil((until-Date.now())/60000);
+ if (minutes<=0) return 'Comprobando desbloqueo';
+ const days = Math.floor(minutes/1440);
+ const hours = Math.floor(minutes%1440/60);
+ const rest = minutes%60;
+ return [days&&days+' d',hours&&hours+' h',rest&&rest+' min'].filter(Boolean).join(' ');
+}
+
+function clauseProtectionHtml(protection) {
+ if (!protection.locked) return '<span class="green">Abierta</span>';
+ if (!protection.until) return '<span class="amber">Blindada</span><small>Sin fecha publicada</small>';
+ const date = new Date(protection.until);
+ return `<time class="clause-unlock" datetime="${date.toISOString()}" data-clause-unlock="${protection.until}">${clauseRemaining(protection.until)}</time>
+  <small>${protection.shieldExpiresLast?'Blindaje':'Bloqueo'} · ${e(dateText(date))}</small>`;
+}
+
+function tickClauseMarket() {
+ for (const time of $$('[data-clause-unlock]')) time.textContent = clauseRemaining(Number(time.dataset.clauseUnlock));
+ const state = S.clauseMarket;
+ if (!state || state.nextUnlock>Date.now()) return;
+ state.nextUnlock = Infinity;
+ state.updatedAt = 0;
+ if (S.screen==='app' && S.tab==='market' && isClauseTab()) void loadClauseMarket();
+}
+
+function clauseTable(rows) {
+ return `<div class="table-scroll full-table clause-market-table" tabindex="0" aria-label="Cláusulas de la liga">
+  <table><thead><tr><th scope="col">Jugador</th><th scope="col">Equipo fantasy</th><th scope="col">Cláusula</th>
+   <th scope="col">Valor de mercado</th><th scope="col">Puntos</th><th scope="col">${lockedClauseTab()?'Tiempo restante':'Estado'}</th><th scope="col">Acción</th>
+  </tr></thead><tbody>${rows.map(({p,protection,recommended,remaining})=>`<tr>
+   <td>${playerCell(p)}</td><td>${e(p.ownerName ?? '—')}${ownPlayer(p)?'<small class="muted">Tu plantilla</small>':''}</td>
+   <td><strong>${clausePriceHtml(p)}</strong></td><td>${fmtFull(p.value||null)}</td><td>${fmtInteger(p.points)}</td>
+   <td>${clauseProtectionHtml(protection)}${recommended?'<span class="badge good">Recomendada</span>':''}</td>
+   <td>${protection.locked || ownPlayer(p) ? '—' : remaining!==null && remaining<0 ? 'Saldo insuficiente' : clauseButton(p)||'—'}</td>
+  </tr>`).join('')}</tbody></table>
+ </div>`;
+}
+
+function clauseMarketResults() {
+ const state = S.clauseMarket;
+ const locked = lockedClauseTab();
+ if (S.leagueLoading || (state.loading && !state.updatedAt)) return '<div class="loading" role="status">Consultando cláusulas de los equipos…</div>';
+ if (!S.teamId) return '<div class="empty-state"><p>Actualiza la liga para identificar tu equipo.</p><button class="btn" data-action="sync-official">Actualizar liga</button></div>';
+ if (!state.updatedAt && !state.rosters.size) return '<div class="loading" role="status">Preparando el mercado de cláusulas…</div>';
+ const rows = clauseRows();
+ S.page = Math.min(S.page,Math.max(0,Math.ceil(rows.length/marketPageSize)-1));
+ const status = state.loading ? 'Actualizando cláusulas…' : state.failed.length
+  ? 'Faltan las plantillas de '+state.failed.join(', ')+'.' : 'Actualizado '+dateText(state.updatedAt);
+ return `<p class="clause-market-note" role="status">${e(status)}</p>
+  ${rows.length ? clauseTable(marketPage(rows))+marketPagination(rows.length,'cláusulas') :
+   `<div class="empty-state">${icon(locked?'lock':'search')}<h3>${state.recommended?'Sin cláusulas recomendadas con estos filtros':
+    'Sin cláusulas '+(locked?'bloqueadas':'disponibles')+' con estos filtros'}</h3></div>`}`;
+}
+
+function paintClauseMarket() {
+ const results = $('#clause-market-results');
+ if (!results) return;
+ results.innerHTML = clauseMarketResults();
+ $('[data-action="clause-smart"]').disabled = S.clauseMarket.loading || !S.clauseMarket.updatedAt;
+ $('[data-action="refresh-clauses"]').disabled = S.clauseMarket.loading || S.leagueLoading || !S.teamId;
+}
+
+function clauseMarketView() {
+ const state = S.clauseMarket;
+ const locked = lockedClauseTab();
+ const options = (choices,value) => choices.map(([key,label])=>
+  `<option value="${e(key)}" ${key===value?'selected':''}>${e(label)}</option>`).join('');
+ const sorts = [
+  ['score','Mejor valoración'],['priceAsc','Cláusula de menor a mayor'],['priceDesc','Cláusula de mayor a menor'],
+  ['name','Jugador de A a Z'],['points','Más puntos'],...(locked?[['unlock','Desbloqueo más próximo']]:[]),
+ ];
+ const owners = [['all','Todos los equipos'],...clauseTeams().map(team=>
+  [team.id,team.name+(team.id===S.teamId?' (tú)':'')])];
+ return `<section class="panel">
+  <div class="panel-head clause-market-head">
+   <div><h2>${icon(locked?'lock':'arrows')} Cláusulas ${locked?'bloqueadas':'disponibles'}</h2>
+    <p class="hint">${locked?'Consulta la protección y cuándo termina.':'Consulta el precio de las cláusulas sin protección individual.'}</p></div>
+   <div class="row-actions"><button class="btn primary small" data-action="clause-smart"
+    ${state.loading || !state.updatedAt?'disabled':''}>${icon('spark')} Clausulazo inteligente</button>
+    <button class="icon-btn" data-action="refresh-clauses" aria-label="Actualizar cláusulas"
+     ${state.loading || S.leagueLoading || !S.teamId?'disabled':''}>${icon('refresh')}</button></div>
+  </div>
+  <div class="toolbar clause-market-toolbar">
+   <div class="search">${icon('search')}<input id="market-search" type="search" value="${e(S.search)}"
+    placeholder="Busca un jugador o un equipo…" aria-label="Buscar jugador o equipo"></div>
+   <select id="clause-owner" aria-label="Equipo fantasy">${options(owners,state.owner)}</select>
+   <select id="clause-position" aria-label="Posición">${options([['all','Todas las posiciones'],...Object.entries(POS)],state.position)}</select>
+   <select id="clause-sort" aria-label="Ordenar cláusulas">${options(sorts,locked || state.sort!=='unlock'?state.sort:'score')}</select>
+   <button class="pill ${state.recommended?'active':''}" data-action="recommended-clauses" aria-pressed="${state.recommended}">Recomendadas</button>
+  </div>
+  <div id="clause-market-results">${clauseMarketResults()}</div>
+ </section>`;
+}
+
+function clauseTrendStats(row, history = []) {
+ const prices = new Map(history.filter(point=>point.day).map(point=>[point.day,point.value]));
+ const last = history.at(-1);
+ const previous = days => last?.day ? prices.get(shiftChartDay(last.day,-days)) : undefined;
+ const change = days => previous(days)===undefined ? null : last.value-previous(days);
+ const daily = change(1);
+ const weekly = change(7);
+ const label = last?.day ? ' · '+chartShortDate.format(new Date(last.day+'T12:00:00Z')) : '';
+ return kvHtml([
+  [daily===null && row.change!==null?'Variación diaria (FútbolFantasy)':'Variación diaria'+(daily===null?'':label),signedMoney(daily??row.change)],
+  ['Variación en 7 días'+(weekly===null?'':label),signedMoney(weekly)],
+ ]);
+}
+
+function clauseReportCard(row) {
+ const {p,ff,prob,projected,remaining,score,protection} = row;
+ const premium = clausePremium(p);
+ const priceReason = premium===0 ? 'Cláusula al valor de mercado' :
+  `Precio ${num(Math.abs(premium),1)} % ${premium<0?'por debajo':'por encima'} del valor de mercado`;
+ const quote = S.clauseMarket.quotes.get(clauseKey(p));
+ const observed = quote && quote.last-quote.first>=60000;
+ return `<article class="clause-report-card ${protection.locked?'is-locked':''}">
+  <header>${playerCell(p)}<span class="badge good">Valoración ${score}/100</span></header>
+  <p>${priceReason} y ${num(projected)} puntos proyectados para la próxima jornada.</p>
+  ${kvHtml([
+   ['Cláusula',clausePriceHtml(p)],['Valor de mercado',fmtFull(p.value)],['Puntos Fantasy',fmtInteger(p.points)],
+   ['Media últimas 5',p.form.length?num(p.recent)+' pts':'—'],['Titularidad estimada',fmtPercent(prob)],
+   ['Próximo rival',statText(ff?.rival??p.rival)],['Coste por punto proyectado',fmtFull(p.clause/projected)],
+   ['Saldo tras el fichaje',remaining===null?'Sin confirmar':fmtFull(remaining)],
+   ...(ff?.minutes==null ? [] : [['Minutos esta temporada',fmtInteger(ff.minutes)]]),
+  ])}
+  <div data-clause-trend>${clauseTrendStats(row)}</div>
+  ${observed?`<p class="hint">Cláusula sin cambios en las consultas desde el ${e(dateText(quote.first))}.</p>`:''}
+  <footer><div>${e(p.ownerName??'—')} · ${clauseProtectionHtml(protection)}</div>${protection.locked?'':clauseButton(p)}</footer>
+ </article>`;
+}
+
+async function openClauseReport() {
+ const rows = clauseRows({smart:true});
+ const title = 'Clausulazo inteligente · '+(lockedClauseTab()?'Bloqueadas':'Disponibles');
+ const dialog = overlay(modalHeader(title)+`<div class="report-body" data-clause-report>
+  <p>${rows.length===1?'1 opción recomendada':rows.length+' opciones recomendadas'} · Saldo ${S.balance===null?'sin confirmar':fmtFull(S.balance)}</p>
+  ${rows.length?`<div class="clause-report-list">${rows.map(clauseReportCard).join('')}</div>`:
+   '<p class="hint">No hay jugadores que cumplan los criterios con los datos actuales.</p>'}
+  <details class="clause-method"><summary>Cómo se calcula la valoración</summary>
+   <p>La valoración pondera precio frente al mercado (45 %), puntos proyectados (30 %), titularidad (20 %) y tendencia diaria (5 %).
+    Se recomienda con al menos 55 puntos de valoración, 60 % de titularidad y 2,8 puntos proyectados. El sobreprecio máximo es 12 %,
+    o 20 % con al menos 5,5 puntos proyectados y 80 % de titularidad. Se tiene en cuenta el saldo disponible.</p>
+   <p>Las cláusulas bloqueadas con fecha publicada se priorizan si vencen en 24 horas. El mánager puede subir el precio o ampliar la protección antes del desbloqueo.</p>
+  </details></div>`,true,title,true);
+ const stats = $$('[data-clause-trend]',dialog);
+ for (let start=0;start<rows.length && dialog.isConnected;start+=4) {
+  await Promise.allSettled(rows.slice(start,start+4).map(async (row,index)=>{
+   const history = await marketHistoryFor(row.p.id);
+   if (dialog.isConnected) stats[start+index].innerHTML = clauseTrendStats(row,history);
+  }));
+ }
+}
 
 function marketCandidates() {
  const source = S.marketTab==='league' ? S.market : S.marketTab==='watch' ? S.players.filter(p=>S.watch.includes(p.id)) : S.players;
@@ -538,6 +912,24 @@ function marketPage(list) {
  return list.slice(S.page*marketPageSize,(S.page+1)*marketPageSize);
 }
 
+function marketPagination(total, label = 'jugadores') {
+ const from = S.page*marketPageSize+1;
+ const to = Math.min((S.page+1)*marketPageSize,total);
+ return `<div class="pagination"><span>${total?'Mostrando '+from+'–'+to+' de '+total:'0'} ${label}</span>
+  <div class="pagination-buttons"><button class="icon-btn" data-action="prev-page" aria-label="Página anterior"
+   ${S.page===0?'disabled':''}>${icon('left')}</button>
+  <button class="icon-btn" data-action="next-page" aria-label="Página siguiente"
+   ${to>=total?'disabled':''}>${icon('chevron')}</button></div></div>`;
+}
+
+function marketNav() {
+ const tabs = [['all','Todos los jugadores'],['league','Mercado de mi liga'],['clauses-open','Cláusulas disponibles'],
+  ['clauses-locked','Cláusulas bloqueadas'],['watch','Seguimiento ('+S.watch.length+')']];
+ return `<div class="subnav market-nav" aria-label="Origen de jugadores">${tabs.map(([key,label])=>
+  `<button class="${S.marketTab===key?'active':''}" data-market-tab="${key}"
+    ${S.marketTab===key?'aria-current="page"':''}>${label}</button>`).join('')}</div>`;
+}
+
 async function loadMarketTrends() {
  const results = $('#market-results');
  if (!results) return;
@@ -555,9 +947,9 @@ function marketTrendCell(p) {
  const change = marketDailyChange(p);
  return `<td class="market-delta ${change>0?'green':change<0?'amber':''}">${deltaMoney(change)}</td>`;
 }
-function marketView(){const list=marketFiltered();S.page=Math.min(S.page,Math.max(0,Math.ceil(list.length/marketPageSize)-1));const players=marketPage(list);return `<div class="subnav" aria-label="Origen de jugadores">${[['all','Todos los jugadores'],['league','Mercado de mi liga'],['watch','Seguimiento ('+S.watch.length+')']].map(([k,v])=>`<button class="${S.marketTab===k?'active':''}" data-market-tab="${k}">${v}</button>`).join('')}</div><section class="panel"><div class="toolbar"><div class="search">${icon('search')}<input id="market-search" type="search" value="${e(S.search)}" placeholder="Busca un jugador o un equipo…" aria-label="Buscar jugador o equipo"></div><div class="pills">${[['all','Todos'],['1','POR'],['2','DEF'],['3','MED'],['4','DEL']].map(([k,v])=>`<button class="pill ${S.position===k?'active':''}" data-position="${k}">${v}</button>`).join('')}</div>${S.marketTab==='league'?`<select id="market-seller" aria-label="Vendedor">
+function marketView(){if(isClauseTab())return marketNav()+clauseMarketView();const list=marketFiltered();S.page=Math.min(S.page,Math.max(0,Math.ceil(list.length/marketPageSize)-1));const players=marketPage(list);return `${marketNav()}<section class="panel"><div class="toolbar"><div class="search">${icon('search')}<input id="market-search" type="search" value="${e(S.search)}" placeholder="Busca un jugador o un equipo…" aria-label="Buscar jugador o equipo"></div><div class="pills">${[['all','Todos'],['1','POR'],['2','DEF'],['3','MED'],['4','DEL']].map(([k,v])=>`<button class="pill ${S.position===k?'active':''}" data-position="${k}">${v}</button>`).join('')}</div>${S.marketTab==='league'?`<select id="market-seller" aria-label="Vendedor">
  ${[['grouped','Todos · LaLiga primero'],['league','Solo LaLiga'],['manager','Solo mánagers'],['all','Todos · Sin agrupar']].map(([key,label])=>`<option value="${key}" ${S.marketSeller===key?'selected':''}>${label}</option>`).join('')}
- </select>`:''}<label class="screen-reader" for="market-sort">Ordenar jugadores</label><select id="market-sort">${[['points','Puntos totales'],['expected','Proyección de puntos'],['average','Media de puntos'],['recent','Forma reciente'],['prob','Probabilidad de titular'],['value','Valor de mercado ↓'],['cheap','Valor de mercado ↑'],['efficiency','Puntos por millón'],['rise','Mayor subida diaria'],['fall','Mayor bajada diaria'],...(S.marketTab==='league'?[['priceAsc','Menor precio de salida'],['priceDesc','Mayor precio de salida']]:[])].map(([k,v])=>`<option value="${k}" ${S.sort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="comparison-bar">${icon('compare')} <span>Una decisión. Dos opciones.</span><select id="compare-a" aria-label="Primer jugador para comparar"><option value="">Jugador A</option>${playerOptions(S.compareA)}</select><span>vs.</span><select id="compare-b" aria-label="Segundo jugador para comparar"><option value="">Jugador B</option>${playerOptions(S.compareB)}</select><button class="btn small" data-action="compare">Comparar ${icon('arrow')}</button></div><div id="market-results">${tableHtml(players,S.marketTab==='league'?'league':'full')}</div><div class="pagination"><span>${list.length?'Mostrando '+(S.page*marketPageSize+1)+'–'+Math.min((S.page+1)*marketPageSize,list.length)+' de '+list.length:'0'} jugadores</span><div class="pagination-buttons"><button class="icon-btn" data-action="prev-page" aria-label="Página anterior" ${S.page===0?'disabled':''}>${icon('left')}</button><button class="icon-btn" data-action="next-page" aria-label="Página siguiente" ${(S.page+1)*marketPageSize>=list.length?'disabled':''}>${icon('chevron')}</button></div></div></section><div class="model-note"><strong>Decide con contexto.</strong> La proyección combina media de temporada (60%), últimas cinco jornadas (40%) y probabilidad de titularidad. Un guion indica que falta un dato. ${S.marketTab==='league'?(S.demo?'Anuncios de ejemplo.':'Pulsa Pujar para revisar y confirmar el importe.'):'El catálogo general incluye jugadores que pueden pertenecer a otros mánagers.'}</div><div class="budget-box">${icon('wallet')}<label for="planner-budget">Tu límite para planificar un fichaje<p>Simula un presupuesto para el asistente.</p></label><input id="planner-budget" type="number" min="0" step="0.1" value="${numRaw(S.budget/1e6)}" aria-label="Presupuesto en millones de euros"><span class="muted">M €</span><button class="btn small" data-action="budget-analyze">${icon('spark')} Analizar</button></div>`}
+ </select>`:''}<label class="screen-reader" for="market-sort">Ordenar jugadores</label><select id="market-sort">${[['points','Puntos totales'],['expected','Proyección de puntos'],['average','Media de puntos'],['recent','Forma reciente'],['prob','Probabilidad de titular'],['value','Valor de mercado ↓'],['cheap','Valor de mercado ↑'],['efficiency','Puntos por millón'],['rise','Mayor subida diaria'],['fall','Mayor bajada diaria'],...(S.marketTab==='league'?[['priceAsc','Menor precio de salida'],['priceDesc','Mayor precio de salida']]:[])].map(([k,v])=>`<option value="${k}" ${S.sort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="comparison-bar">${icon('compare')} <span>Una decisión. Dos opciones.</span><select id="compare-a" aria-label="Primer jugador para comparar"><option value="">Jugador A</option>${playerOptions(S.compareA)}</select><span>vs.</span><select id="compare-b" aria-label="Segundo jugador para comparar"><option value="">Jugador B</option>${playerOptions(S.compareB)}</select><button class="btn small" data-action="compare">Comparar ${icon('arrow')}</button></div><div id="market-results">${tableHtml(players,S.marketTab==='league'?'league':'full')}</div>${marketPagination(list.length)}</section><div class="model-note"><strong>Decide con contexto.</strong> La proyección combina media de temporada (60%), últimas cinco jornadas (40%) y probabilidad de titularidad. Un guion indica que falta un dato. ${S.marketTab==='league'?(S.demo?'Anuncios de ejemplo.':'Pulsa Pujar para revisar y confirmar el importe.'):'El catálogo general incluye jugadores que pueden pertenecer a otros mánagers.'}</div><div class="budget-box">${icon('wallet')}<label for="planner-budget">Tu límite para planificar un fichaje<p>Simula un presupuesto para el asistente.</p></label><input id="planner-budget" type="number" min="0" step="0.1" value="${numRaw(S.budget/1e6)}" aria-label="Presupuesto en millones de euros"><span class="muted">M €</span><button class="btn small" data-action="budget-analyze">${icon('spark')} Analizar</button></div>`}
 function numRaw(n){return Number.isFinite(n)?String(Math.round(n*10)/10):'0'}
 function playerOptions(selected){return S.players.slice().sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`<option value="${e(p.id)}" ${selected===p.id?'selected':''}>${e(p.name)}</option>`).join('')}
 let officialSync = null;
@@ -632,7 +1024,7 @@ function listingStatus(p) {
 }
 
 const clauseAvailable = p => canTrade() && !ownPlayer(p) && p.ownerTeamId && p.privateId && p.clause > 0 &&
- !isShielded(p) && !future(p.clauseLockedUntil) && (S.balance === null || S.balance >= p.clause);
+ !clauseProtection(p).locked && (S.balance === null || S.balance >= p.clause);
 
 function clauseButton(p) {
  if (!clauseAvailable(p)) return '';
@@ -778,8 +1170,11 @@ function shieldBadge(p) {
 }
 
 function clauseStatus(p) {
- if (isShielded(p)) return future(p.shieldedUntil) ? 'Blindado hasta ' + dateText(p.shieldedUntil) : 'Blindado';
- if (future(p.clauseLockedUntil)) return 'Bloqueada hasta ' + dateText(p.clauseLockedUntil);
+ const protection = clauseProtection(p);
+ if (protection.locked) {
+  const status = !protection.until || protection.shieldExpiresLast ? 'Blindada' : 'Bloqueada';
+  return status+(protection.until?' hasta '+dateText(protection.until):'');
+ }
  return p.clause > 0 ? 'Sin bloqueo individual' : '—';
 }
 
@@ -819,11 +1214,15 @@ const squadEssentials=[
 ];
 
 function squadCompleteColumns() {
- return [...squadEssentials,
-  ['Valor de mercado',(p,ff)=>fmtFull(ff?.value ?? (p.value || null))],
+ const period = squadValuePeriod();
+ const daily = ['daily','day'].includes(squadValueState().mode);
+ return [...squadEssentials.slice(0,2),
+  [daily?'Variación diaria':'Variación del periodo',p=>signedMoney(completePlayerValues(p,period).change)],
+  [squadValueState().mode==='daily'?'Valor de mercado':'Valor al cierre',p=>
+   fmtFull(completePlayerValues(p,period).price ?? (squadValueState().mode==='daily' ? p.value || null : null))],
   ['Puntos',p=>fmtInteger(p.points)],
   ['Últimas 5',p=>formHtml(p)],
-  ['Cláusula',p=>p.clause>0?fmtFull(p.clause):'—'],
+  ['Cláusula',p=>clausePriceHtml(p)],
  ];
 }
 
@@ -882,29 +1281,34 @@ const squadMetrics = {
 
 const marketHistoryCache = new Map();
 const squadValueModes = [
- ['daily','Última variación'],['7','Últimos 7 días'],['30','Últimos 30 días'],['90','Últimos 90 días'],
+ ['daily','Última variación'],['7','Últimos 7 días'],['30','Últimos 30 días'],['90','Últimos 90 días'],['week','Semana concreta'],
  ['month','Mes concreto'],['day','Día concreto'],['range','Rango de fechas'],
 ];
 
 function marketHistoryFor(id) {
- if (!marketHistoryCache.has(id)) {
-  const request = data(privateBase + '/player/' + encodeURIComponent(id) + '/market-value').then(historyValues).catch(error => {
+ const cached = marketHistoryCache.get(id);
+ if (cached && cached.until > Date.now()) return cached.request;
+ const entry = {until:Infinity};
+ entry.request = data(privateBase + '/player/' + encodeURIComponent(id) + '/market-value')
+  .then(raw => {
+   entry.until = Date.now()+300000;
+   return historyValues(raw);
+  }).catch(error => {
    marketHistoryCache.delete(id);
    throw error;
   });
-  marketHistoryCache.set(id,request);
- }
- return marketHistoryCache.get(id);
+ marketHistoryCache.set(id,entry);
+ return entry.request;
 }
 
 function squadValueState() {
- return S.squadValue ??= {mode:'daily',month:'',day:'',from:'',to:'',histories:new Map(),loading:false};
+ return S.squadValue ??= {mode:'daily',month:'',week:'',day:'',from:'',to:'',histories:new Map(),loading:false};
 }
 
 function squadValueControls() {
- if (S.squadMetric !== 'value') return '';
+ if (!['complete','value'].includes(S.squadMetric)) return '';
  const state = squadValueState();
- const latest = S.dataAt ? chartDay(S.dataAt) : madridDay.format(new Date());
+ const latest = madridDay.format(new Date());
  const monthStart = latest.slice(0,7) + '-01T12:00:00Z';
  const months = Array.from({length:18},(_,index) => {
   const date = new Date(monthStart);
@@ -912,6 +1316,7 @@ function squadValueControls() {
   return [date.toISOString().slice(0,7),monthLabel.format(date)];
  });
  state.month ||= months[0][0];
+ state.week ||= latest;
  state.day ||= latest;
  state.from ||= dateWindowEnd(latest,30);
  state.to ||= latest;
@@ -920,6 +1325,7 @@ function squadValueControls() {
  const dateField = (label,key) => `<label>${label}<input type="date" data-squad-value="${key}" value="${e(state[key])}"></label>`;
  return `<div class="chart-filters squad-value-filters">
   <label>Periodo del valor<select data-squad-value="mode">${options(squadValueModes,state.mode)}</select></label>
+  ${state.mode==='week'?dateField('Día de la semana (lunes a domingo)','week'):''}
   ${state.mode==='month'?`<label>Mes<select data-squad-value="month">${options(months,state.month)}</select></label>`:''}
   ${state.mode==='day'?dateField('Día','day'):''}
   ${state.mode==='range'?dateField('Desde','from')+dateField('Hasta','to'):''}
@@ -928,14 +1334,114 @@ function squadValueControls() {
 }
 
 function squadValueMessage() {
- const {mode,loading,from,to} = squadValueState();
+ const {mode,loading,from,to,failed} = squadValueState();
  if (mode==='range' && from && to && from>to) return 'La fecha inicial debe ser anterior o igual a la final.';
- if (loading && mode !== 'daily') return 'Cargando históricos de la plantilla…';
+ if (loading && S.squadMetric==='value' && mode!=='daily') return 'Cargando históricos de la plantilla…';
+ if (failed && S.squadMetric==='value' && mode!=='daily') return 'Algunos históricos no se han podido cargar.';
  return '';
 }
 
+function squadValuePeriod(state = squadValueState()) {
+ const latest = madridDay.format(new Date());
+ const {mode,day,week,month,from,to} = state;
+ if (mode==='daily') {
+  const lastDay = S.roster.map(p=>state.histories.get(p.id)?.at(-1)?.day)
+   .filter(day=>day && day<=latest).sort().at(-1) || latest;
+  return {from:lastDay,to:lastDay};
+ }
+ if (mode==='day') return {from:day,to:day};
+ if (mode==='range') return {from,to};
+ if (mode==='week' && week) {
+  const weekday = new Date(week+'T12:00:00Z').getUTCDay();
+  const monday = shiftChartDay(week,-((weekday+6)%7));
+  return {from:monday,to:shiftChartDay(monday,6)};
+ }
+ if (mode==='month' && month) {
+  const end = new Date(month+'-01T12:00:00Z');
+  end.setUTCMonth(end.getUTCMonth()+1,0);
+  return {from:month+'-01',to:end.toISOString().slice(0,10)};
+ }
+ return {from:Number(mode)>0?dateWindowEnd(latest,Number(mode)):'',to:latest};
+}
+
+function squadPriceHistory(p) {
+ const rows = squadValueState().histories.get(p.id) ?? [];
+ return new Map(rows.filter(row=>row.day).map(row=>[row.day,row.value]));
+}
+
+function completePlayerValues(p, {from,to}, values = squadPriceHistory(p)) {
+ if (!from || !to || from>to) return {price:null,change:null};
+ const close = to < madridDay.format(new Date()) ? to : madridDay.format(new Date());
+ if (close<from) return {price:null,change:null};
+ const price = values.get(close) ?? null;
+ const previous = values.get(shiftChartDay(from,-1)) ?? null;
+ return {price,change:price===null || previous===null ? null : price-previous};
+}
+
+function squadValuation(period, chart = false) {
+ let change = 0;
+ let price = 0;
+ let compared = 0;
+ let priced = 0;
+ const daily = new Map();
+ for (const p of S.roster) {
+  const values = squadPriceHistory(p);
+  const totals = completePlayerValues(p,period,values);
+  if (totals.price!==null) {price+=totals.price;priced++;}
+  if (totals.change!==null) {change+=totals.change;compared++;}
+  if (!chart || !period.from || period.from>=period.to) continue;
+  for (const [day,value] of values) {
+   if (day<period.from || day>period.to) continue;
+   const prior = values.get(shiftChartDay(day,-1));
+   if (prior===undefined) continue;
+   const row = daily.get(day) ?? {day,value:0,count:0};
+   row.value+=value-prior;
+   row.count++;
+   daily.set(day,row);
+  }
+ }
+ const rows = [...daily.values()].sort((a,b)=>a.day.localeCompare(b.day))
+  .map(row=>({...row,coverage:row.count+'/'+S.roster.length+' jugadores'}));
+ return {change:compared?change:null,price:priced?price:null,compared,priced,rows};
+}
+
+function teamValueSummary(period, overview = false) {
+ const {from,to} = period;
+ const summary = squadValuation(period,!overview);
+ const state = squadValueState();
+ const today = madridDay.format(new Date());
+ const dayLabel = day => chartShortDate.format(new Date(day+'T12:00:00Z'));
+ const label = from && to && from<=to ? (from===to?dayLabel(from):dayLabel(from)+' – '+dayLabel(to)) : '';
+ const note = !S.roster.length ? (S.leagueLoading?'Cargando tu plantilla…':'Sin jugadores en plantilla.')
+  : state.loading || state.roster!==S.roster ? 'Cargando históricos de la plantilla…'
+  : !from || !to ? 'Selecciona las fechas del periodo.'
+  : from>to ? 'Revisa las fechas del periodo.'
+  : !summary.compared ? 'Sin valores comparables para el periodo.'
+  : summary.compared+' de '+S.roster.length+' jugadores con ambos valores'+(label?' · '+label:'');
+ const total = overview && summary.price===null && S.roster.some(p=>p.value>0)
+  ? S.roster.reduce((sum,p)=>sum+p.value,0) : summary.price;
+ return `<div class="team-value-summary">
+  <div>${overview?'<h2>Variación diaria del equipo</h2>':`<h3>${from===to?'Variación diaria de la plantilla':'Variación del periodo'}</h3>`}
+   <strong class="team-value-amount signed-value ${valueTone(summary.change)}">${deltaMoney(summary.change)}</strong>
+   <p class="hint" role="status">${e(note)}</p></div>
+  <div class="team-value-current">
+   <small>${overview?'Valor de la plantilla':'Valor al cierre · '+(to && from<=to?dayLabel(to<today?to:today):'—')}</small>
+   <strong>${fmtFull(total)}</strong>
+   ${summary.priced>0 && summary.priced<S.roster.length?`<small>${summary.priced} de ${S.roster.length} jugadores con valor</small>`:''}
+  </div>
+  ${overview?'<button class="btn small" data-action="team-history">Ver histórico</button>':''}
+  ${state.failed && !state.loading?'<button class="link-btn" data-action="retry-squad-history">Reintentar históricos</button>':''}
+ </div>
+ ${overview?'':`<p class="hint">Calculado sobre los jugadores de tu plantilla actual. Cada día se compara con el anterior.</p>
+  ${summary.rows.length?periodChart(summary.rows,'team-change')+chartColorKey('daily'):''}`}`;
+}
+
+function overviewTeamValue() {
+ return teamValueSummary(squadValuePeriod({...squadValueState(),mode:'daily'}),true);
+}
+
 function squadMarketValues(p,ff) {
- const {mode,month,day,from,to,histories} = squadValueState();
+ const {mode,day,histories} = squadValueState();
  const current = ff?.value ?? (p.value || null);
  if (mode === 'daily') return {price:current,change:ff?.dailyChange ?? null};
  const rows = histories.get(p.id)?.filter(row=>row.day) ?? [];
@@ -944,8 +1450,9 @@ function squadMarketValues(p,ff) {
   const selected = rows.find(row=>row.day===day);
   return {price:selected?.value ?? null,change:selected && current!==null ? current-selected.value : null};
  }
- const first = mode==='range' ? from : mode==='month' ? month+'-01' : dateWindowEnd(rows.at(-1).day,Number(mode));
- const last = mode==='range' ? to : mode==='month' ? month+'-31' : rows.at(-1).day;
+ const bounds = ['range','month','week'].includes(mode) ? squadValuePeriod() :
+  {from:dateWindowEnd(rows.at(-1).day,Number(mode)),to:rows.at(-1).day};
+ const {from:first,to:last} = bounds;
  const period = rows.filter(row=>first && last && row.day>=first && row.day<=last);
  return {price:period.at(-1)?.value ?? null,change:period.length>1 ? period.at(-1).value-period[0].value : null};
 }
@@ -972,13 +1479,16 @@ function squadPitchMetrics(p) {
  const ff=ffFor(p);
  const rival=squadRival(p,ff);
  const short=rival?.length>10 ? (S.teams.find(t=>nameKey(t.name)===nameKey(rival))?.shortName ?? rival) : rival;
- const columns=squadMetricColumns();
  const supplementary=S.squadMetric==='complete' ? null :
-  columns[S.squadMetric==='last'?1:S.squadMetric==='minutes'?2:0];
+  squadMetricColumns()[S.squadMetric==='last'?1:S.squadMetric==='minutes'?2:0];
+ const variation = S.squadMetric==='complete'
+  ? completePlayerValues(p,squadValuePeriod()).change : ff?.dailyChange ?? null;
  return `<span class="pitch-data">
   <span title="Probabilidad de titularidad">${probabilityLabel(p,ff)} tit.</span>
   <span title="${e(rival??'Próximo rival sin publicar')}">${short?'vs '+e(short):'Rival —'}</span>
-  <span><span class="screen-reader">Variación diaria </span>${squadDailyChange(p,ff,true)}</span>
+  <span title="${e(deltaMoney(variation))}"><span class="screen-reader">Variación de valor </span>
+   <span class="signed-value ${valueTone(variation)}">${variation===null?'—':(variation>0?'+':'')+compactEuros.format(variation)+' €'}</span>
+  </span>
   ${supplementary?`<span title="${e(supplementary[0])}">${supplementary[1](p,ff,true)}</span>`:''}
  </span>`;
 }
@@ -995,37 +1505,43 @@ function squadBenchContent(bench) {
 function refreshSquadMetrics() {
  const grid = $('#squad-metrics');
  if (!grid) return;
+ const summary = $('#squad-value-summary');
+ summary.innerHTML = S.squadMetric==='complete' ? teamValueSummary(squadValuePeriod()) : '';
+ summary.hidden = S.squadMetric!=='complete';
+ const note = $('.squad-value-message');
+ if (note) note.textContent = squadValueMessage();
+ if (draggingLineupPlayer) return;
  const lineup = bestLineup();
  grid.innerHTML = squadTable(squadPlayers());
  $('#squad-pitch').innerHTML = pitchHtml(lineup,true);
  $('#squad-bench').innerHTML = squadBenchContent(squadBench(lineup));
- const note = $('.squad-value-message');
- if (note) note.textContent = squadValueMessage();
  paintLineupSelection();
 }
 
-async function loadSquadMarketHistory() {
+async function loadSquadMarketHistory(force = false) {
+ const league = S.league;
  const state = squadValueState();
- if (S.squadMetric!=='value' || state.mode==='daily' || state.loading) return;
+ if (S.tab==='squad' && !(S.squadMetric==='complete' || (S.squadMetric==='value' && state.mode!=='daily'))) return;
  const roster = S.roster;
- const players = roster.filter(p=>!state.histories.has(p.id));
- if (!players.length) return;
+ if (!roster.length || (state.roster===roster && (state.loading || (!force && state.checkedAt+300000>Date.now())))) return;
+ state.roster = roster;
  state.loading = true;
- refreshSquadMetrics();
- try {
-  for (let index=0; index<players.length; index+=4) {
-   if (S.screen!=='app' || S.tab!=='squad' || S.roster!==roster || S.squadMetric!=='value' || state.mode==='daily') break;
-   await Promise.allSettled(players.slice(index,index+4).map(async p => {
-    state.histories.set(p.id,await marketHistoryFor(p.id));
-   }));
-  }
- } finally {
-  state.loading = false;
-  if (S.tab==='squad') {
-   refreshSquadMetrics();
-   if(S.roster!==roster) void loadSquadMarketHistory();
-  }
+ const paint = () => {
+  const overview = $('#overview-team-value');
+  if (overview) overview.innerHTML = overviewTeamValue();
+  if (S.tab==='squad') refreshSquadMetrics();
+ };
+ const current = () => sameLeague(league) && S.roster===roster && S.squadValue===state;
+ paint();
+ const histories = new Map();
+ for (let index=0; index<roster.length && current(); index+=4) {
+  await Promise.allSettled(roster.slice(index,index+4).map(async p => {
+   histories.set(p.id,await marketHistoryFor(p.id));
+  }));
  }
+ if (!current()) return;
+ Object.assign(state,{histories,loading:false,checkedAt:Date.now(),failed:roster.length-histories.size});
+ paint();
 }
 
 function squadPlayers() {
@@ -1074,7 +1590,10 @@ function squadStatsView(bench) {
      `<option value="${key}" ${S.squadMetric === key ? 'selected' : ''}>${e(label)}</option>`).join('')}</select>
    </label>
   </div>
-  <div id="squad-value-controls">${squadValueControls()}</div>
+   <div id="squad-value-controls">${squadValueControls()}</div>
+   <div id="squad-value-summary" class="squad-value-panel" ${S.squadMetric==='complete'?'':'hidden'}>
+    ${S.squadMetric==='complete'?teamValueSummary(squadValuePeriod()):''}
+   </div>
   <div id="squad-metrics">${squadTable(players)}</div>
   <div class="roster-meta"><span>${bench.length} en el banquillo · ${S.locked.length} fijados</span>
    <span>${players.filter(isShielded).length} blindados · ${formatMoney(players.reduce((sum,p) => sum + p.value,0))}</span>
@@ -1112,6 +1631,9 @@ function reportPoints(detail, extra = false) {
 
 function playerReport(p, detail, marketHistory, weeks, loading = false) {
  const ff = ffFor({...p, sourceSlug: detail?.slug ?? p.sourceSlug, fullName: detail?.name ?? p.fullName});
+ const latest = marketHistory.at(-1);
+ const lastChange = latest?.day ? dailyMarketChanges(marketHistory).get(latest.day) : null;
+ const date = lastChange!=null ? ' · '+chartShortDate.format(new Date(latest.day+'T12:00:00Z')) : '';
  const ffUrl = ffLink(ff);
  const bio = [
   ['Nacionalidad', statText(ff?.nationality ? countryNames.of(ff.nationality) : null)],
@@ -1130,12 +1652,12 @@ function playerReport(p, detail, marketHistory, weeks, loading = false) {
  ]);
  return `<div class="report-columns">
   <div>
+   ${reportSection('Evolución del valor','trend',
+    `<div class="report-inline"><span>Variación diaria${date}</span><strong>${signedMoney(lastChange??ff?.dailyChange)}</strong></div>
+     ${chartPeriodPanel('market',marketHistory,loading)}`)}
    ${reportSection('Rendimiento por jornada','chart',
     `<div class="report-inline"><span>${num(p.average)} de media</span>${formHtml(p)}</div>
      ${chartPeriodPanel('points',weeks,loading)}`)}
-   ${reportSection('Evolución del valor','trend',
-    `<div class="report-inline"><span>Variación diaria</span><strong>${deltaMoney(ff?.dailyChange)}</strong></div>
-     ${chartPeriodPanel('market',marketHistory,loading)}`)}
    ${reportSection('Próximo partido','calendar',kvHtml([
     ['Rival', statText(ff?.rival ?? p.rival)], ['Jornada', (ff?.week ?? p.probWeek) || '—'],
     ['Local / visitante', matchVenue(p,ff)], ['Dificultad', statText(fixtureDifficulty(ff))],
@@ -1163,10 +1685,9 @@ function profilePlayerActions(p) {
  const controls = [listing && listingButton(listing), clauseButton(p), shieldControl(p)].filter(Boolean).join('');
  if (!p.ownerTeamId && !listing) return '';
  const clause = p.clause > 0;
- const amount = clause ? fmtFull(p.clause) : '';
  const title = p.ownerName || (ownPlayer(p) ? 'Tu plantilla' : 'Mercado de tu liga');
- let status = clause ? 'Cláusula ' + amount + ' · ' + clauseStatus(p) : listing ? listingStatus(listing) : 'Sin cláusula publicada';
- if (!ownPlayer(p) && clause && !isShielded(p) && !future(p.clauseLockedUntil) &&
+ let status = clause ? clauseStatus(p) : listing ? listingStatus(listing) : 'Sin cláusula publicada';
+ if (!ownPlayer(p) && clause && !clauseProtection(p).locked &&
     S.balance !== null && S.balance < p.clause) status += ' · Saldo insuficiente';
  return `<div class="report-actions"><div><strong>${e(title)}</strong><p class="hint">${e(status)}</p></div>
   ${controls ? `<div class="row-actions">${controls}</div>` : ''}</div>`;
@@ -1197,14 +1718,16 @@ function playerSummary(p) {
  return `<div class="profile-stats">${[
   ['Valor de mercado',formatMoney(p.value || ff?.value)],
   ['Puntos Fantasy',fmtInteger(p.points)], ['Titularidad',probabilityLabel(p, ff)],
-  ['Cláusula',p.clause > 0 ? formatMoney(p.clause) : '—'],
+  ['Cláusula',clausePriceHtml(p,true)],
  ].map(([label,value]) => profileTile(label,value)).join('')}</div>`;
 }
 
-async function openPlayer(id, teamId = '') {
- const p = (teamId && rosterPlayer(id, teamId)) || dataPlayer(id);
+async function openPlayer(id, teamId = '', fromClauseReport = false) {
+ const p = (teamId && rosterPlayer(id, teamId)) ||
+  S.roster.find(p=>p.id===id) || [...S.rivalRosters.values()].flat().find(p=>p.id===id) || dataPlayer(id);
  if (!p) return;
- const back = teamId && S.rivalRosters.has(teamId) ?
+ const back = fromClauseReport ? `<button class="link-btn" data-action="clause-smart">${icon('left')} Recomendaciones</button>` :
+  teamId && S.rivalRosters.has(teamId) && S.tab==='rivals' ?
   `<button class="link-btn" data-rival="${e(teamId)}">${icon('left')} Plantilla</button>` : '';
  const dialog = overlay(modalHeader('Informe del jugador', back) + `<div class="report-body">
   ${playerIdentity(p)}<div data-player-summary>${playerSummary(p)}</div>
@@ -1229,12 +1752,20 @@ async function openPlayer(id, teamId = '') {
 
 function demoRivalRoster(id) {
  if (id === S.teamId) return S.roster;
- const owner = S.standings.map(standingInfo).find(row => row.id === id);
- const start = Number(id.replace(/\D/g,'')) || 0;
- return S.players.filter(p => p.points > 25 && p.prob >= 60 && !S.roster.some(r => r.id === p.id))
-  .sort((a,b) => b.average - a.average).slice(start, start + 16)
-  .map((p,i) => ({...p, ownerTeamId:id, ownerName:owner?.name,
-   clause: Math.round(p.value * 1.25), shielded:i === 0}));
+ const rivals = clauseTeams().filter(team=>team.id!==S.teamId);
+ const index = rivals.findIndex(team=>team.id===id);
+ const demoAt = S.clauseMarket.demoAt;
+ return S.players.filter(p=>p.points>25 && p.value>0 && p.prob>=30 && !S.roster.some(r=>r.id===p.id))
+  .sort((a,b)=>b.average-a.average || a.id.localeCompare(b.id)).slice(0,rivals.length*16)
+  .filter((p,i)=>i%rivals.length===index).map((p,i)=>{
+   const factor = [.94,1.05,1.46,1.1,.91,1.22,1.02,1.28][(i+index)%8];
+   const lockedUntil = (i+index)%3===0 ? demoAt+(2+((i*3+index)%60))*3600000 : null;
+   const shieldedUntil = i===0 ? demoAt+(4+index)*3600000 : null;
+   return {...p,ownerTeamId:id,ownerName:rivals[index].name,privateId:'demo-'+p.id,
+    clause:Math.round(p.value*factor),
+    clauseLockedUntil:lockedUntil ? new Date(lockedUntil).toISOString() : null,
+    shieldedUntil:shieldedUntil ? new Date(shieldedUntil).toISOString() : null};
+  });
 }
 
 function rivalRosterTable(roster) {
@@ -1247,7 +1778,7 @@ function rivalRosterTable(roster) {
    </tr></thead>
    <tbody>${players.map(p => `<tr>
     <td>${playerCell(p)}</td><td>${fmtInteger(p.points)}<small>${num(p.average)} media</small></td>
-    <td>${formatMoney(p.value || null)}</td><td><strong>${p.clause > 0 ? fmtFull(p.clause) : '—'}</strong></td>
+     <td>${formatMoney(p.value || null)}</td><td><strong>${clausePriceHtml(p)}</strong></td>
     <td>${statText(clauseStatus(p))}</td><td>${ownPlayer(p) ? shieldControl(p) : clauseButton(p)}</td>
    </tr>`).join('')}</tbody></table>
   </div>
@@ -1297,9 +1828,8 @@ async function openRival(id) {
  const dialog = overlay(modalHeader('Perfil del mánager') + main(initial),true,'Perfil de ' + info.name,true);
  if (initial) return;
  try {
-  const raw = await data(privateBase + '/leagues/' + encodeURIComponent(league.id) + '/teams/' + encodeURIComponent(id));
+  const roster = await leagueRoster(league,info);
   if (!sameLeague(league) || !dialog.isConnected) return;
-  const roster = mergePrivate(raw,'roster',info);
   S.rivalRosters.set(id,roster);
   $('.report-body',dialog).innerHTML = rivalReport(info,roster);
  } catch (error) {
@@ -1379,30 +1909,43 @@ const chartShortDate = new Intl.DateTimeFormat('es-ES', {day:'2-digit',month:'2-
 const chartMoneyFormat = new Intl.NumberFormat('es-ES', {style:'currency',currency:'EUR',minimumFractionDigits:0,maximumFractionDigits:2});
 const chartPointsFormat = new Intl.NumberFormat('es-ES', {maximumFractionDigits:20});
 
-function chartHtml(values, labels, title, format, axisLabels = labels) {
+function chartHtml(values, labels, title, format, axisLabels = labels, style = 'line') {
  if (!values.length) return '<p class="hint">Sin histórico publicado.</p>';
 
+ const bars = style === 'change';
  const bottom = chartHeight - chartInset;
- const low = Math.min(...values);
- const high = Math.max(...values);
+ const low = bars ? Math.min(0,...values) : Math.min(...values);
+ const high = bars ? Math.max(0,...values) : Math.max(...values);
  const scale = high - low || 1;
+ const heightAt = value => high === low ? chartHeight / 2 :
+  bottom - (value - low) / scale * (chartHeight - 2 * chartInset);
  const points = values.map((value,index) => ({
   x: values.length === 1 ? chartWidth / 2 : chartInset + index * (chartWidth - 2 * chartInset) / (values.length - 1),
-  y: high === low ? chartHeight / 2 : bottom - (value - low) / scale * (chartHeight - 2 * chartInset),
+  y: heightAt(value),
   label: labels[index], value: format(value),
+  tone: bars ? valueTone(value) : style === 'price' && index ? valueTone(value - values[index-1]) :
+   style === 'points' && (value >= 7 || value <= 2) ? valueTone(value >= 7 ? 1 : -1) : '',
  }));
  const line = points.map(({x,y}) => x + ',' + y).join(' ');
  const first = points[0];
  const last = points.at(-1);
+ const baseline = heightAt(0);
+ const barWidth = Math.min(22, (chartWidth - 2 * chartInset) / points.length * .7);
+ const series = bars ? `<path class="chart-zero" d="M${chartInset} ${baseline}H${chartWidth-chartInset}"/>${points.map(point =>
+  `<rect class="chart-bar ${point.tone}" x="${point.x-barWidth/2}" y="${Math.min(point.y,baseline)}"
+    width="${barWidth}" height="${Math.max(1.5,Math.abs(point.y-baseline))}" rx="1"/>`).join('')}` :
+  `<polygon points="${line} ${last.x},${bottom} ${first.x},${bottom}" class="chart-area"/>
+   ${style === 'price' ? points.slice(1).map((point,index) =>
+    `<path class="chart-line ${point.tone}" d="M${points[index].x},${points[index].y}L${point.x},${point.y}"/>`).join('')
+    : `<polyline points="${line}" class="chart-line"/>`}`;
 
- return `<div class="trend-chart">
+ return `<div class="trend-chart chart-${style}">
   <div class="chart-plot">
    <svg viewBox="0 0 ${chartWidth} ${chartHeight}" aria-hidden="true">
     <path d="M14 14h362M14 80h362M14 146h362" class="chart-grid"/>
-    <polygon points="${line} ${last.x},${bottom} ${first.x},${bottom}" class="chart-area"/>
-    <polyline points="${line}" class="chart-line"/>
+    ${series}
     <line class="chart-guide" y1="10" y2="${bottom}" visibility="hidden"/>
-    ${points.map(({x,y,label,value}) => `<circle class="chart-point" cx="${x}" cy="${y}" r="${points.length>80?1:points.length>36?2:4}"
+    ${points.map(({x,y,label,value,tone}) => `<circle class="chart-point ${tone}" cx="${x}" cy="${y}" r="${points.length>80?1:points.length>36?2:4}"
       data-label="${e(label)}" data-value="${e(value)}"/>`).join('')}
    </svg>
    <input class="chart-index" type="range" min="0" max="${points.length - 1}" value="${points.length - 1}"
@@ -1506,19 +2049,29 @@ function chartDay(date) {
 }
 
 function periodChart(rows, kind) {
- const money = kind === 'market';
+ const money = kind !== 'points';
+ const change = ['daily','team-change'].includes(kind);
  if (!rows.length) return '<p class="hint">Sin datos para el periodo seleccionado.</p>';
  const dates = rows.map(row => row.day ? new Date(row.day + 'T12:00:00Z') : null);
  return chartHtml(
   rows.map(row => row.value),
   rows.map((row,index) => {
    const date = dates[index] ? chartDateFormat.format(dates[index]) : 'Sin fecha';
-   return money ? date : 'Jornada ' + row.week + (dates[index] ? ' · ' + date : '');
+   if (!money) return 'Jornada ' + row.week + (dates[index] ? ' · ' + date : '');
+   return date + (row.coverage ? ' · ' + row.coverage : '');
   }),
-  money ? 'Histórico de valor de mercado' : 'Puntos por jornada',
-  value => money ? chartMoneyFormat.format(value) : chartPointsFormat.format(value) + ' pts',
+  change ? 'Variación diaria ' + (kind === 'team-change' ? 'del equipo' : 'del jugador') :
+   money ? 'Histórico de valor de mercado' : 'Puntos por jornada',
+  value => change ? deltaMoney(value) : money ? chartMoneyFormat.format(value) : chartPointsFormat.format(value) + ' pts',
   rows.map((row,index) => money ? (dates[index] ? chartShortDate.format(dates[index]) : '') : 'J' + row.week),
+  change ? 'change' : money ? 'price' : 'points',
  );
+}
+
+function chartColorKey(kind) {
+ const labels = kind === 'points' ? ['7 puntos o más','2 puntos o menos','De 3 a 6 puntos'] : ['Subida','Bajada','Sin cambio'];
+ return `<div class="chart-key">${labels.map((label,index) =>
+  `<span class="${['tone-gain','tone-loss',kind==='points'?'tone-points':'tone-flat'][index]}"><i aria-hidden="true"></i>${label}</span>`).join('')}</div>`;
 }
 
 function chartPeriodPanel(kind, rows, loading) {
@@ -1536,9 +2089,13 @@ function chartPeriodPanel(kind, rows, loading) {
    <label>Periodo<select aria-label="Periodo de ${name}" data-chart-period>
     ${periods.map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}
    </select></label>
+   ${kind === 'market' ? `<label>Mostrar<select data-chart-series>
+    <option value="market">Valor de mercado</option><option value="daily">Variación diaria</option>
+   </select></label>` : ''}
    <div class="chart-filter-fields" data-chart-fields></div>
   </div>
   <div data-chart-result></div>
+  ${chartColorKey(kind)}
   <p class="hint chart-filter-note" data-chart-note aria-live="polite"></p>
  </div>`;
 }
@@ -1603,10 +2160,14 @@ function chartPeriodFields(mode, kind, rows) {
  return '';
 }
 
+function shiftChartDay(day, days) {
+ const date = new Date(day + 'T12:00:00Z');
+ date.setUTCDate(date.getUTCDate()+days);
+ return date.toISOString().slice(0,10);
+}
+
 function dateWindowEnd(day, count) {
- const start = new Date(day + 'T12:00:00Z');
- start.setUTCDate(start.getUTCDate() - count + 1);
- return start.toISOString().slice(0,10);
+ return shiftChartDay(day,1-count);
 }
 
 function filterChartPeriod(panel, kind, rows, mode) {
@@ -1630,13 +2191,17 @@ function setupChartPeriod(panel, kind, original, teamId) {
  const fields = panel.querySelector('[data-chart-fields]');
  const result = panel.querySelector('[data-chart-result]');
  const note = panel.querySelector('[data-chart-note]');
+ const series = panel.querySelector('[data-chart-series]');
+ const changes = kind === 'market' ? dailyMarketChanges(original) : null;
  let rows = original;
  let pendingDates = null;
  let version = 0;
 
  function render() {
   const filtered = filterChartPeriod(panel,kind,rows,period.value);
-  result.innerHTML = periodChart(filtered,kind);
+  const showChanges = series?.value === 'daily';
+  result.innerHTML = showChanges ? periodChart(filtered.filter(row=>changes.has(row.day))
+   .map(row=>({...row,value:changes.get(row.day)})),'daily') : periodChart(filtered,kind);
   const timeFilter = !['all','recent','weeks'].includes(period.value);
   const from = fields.querySelector('[data-chart-from]')?.value;
   const to = fields.querySelector('[data-chart-to]')?.value;
@@ -1671,8 +2236,28 @@ function setupChartPeriod(panel, kind, original, teamId) {
 
 function historyValues(raw) {
  const rows = collection(raw,['marketValues','marketValue','values','data','history','items','content']);
- return rows.map(row => ({value:numberOrNull(row.marketValue ?? row.value ?? row.price),day:chartDay(row.date ?? row.timestamp ?? row.day)}))
-  .filter(row => row.value !== null).sort((a,b) => a.day.localeCompare(b.day));
+ const daily = new Map();
+ const undated = [];
+ for (const row of rows) {
+  const date = row.date ?? row.timestamp ?? row.day;
+  const day = chartDay(date);
+  const value = numberOrNull(row.marketValue ?? row.value ?? row.price);
+  if (value === null) continue;
+  const time = Date.parse(date);
+  if (!day) undated.push({day,value});
+  else if (!daily.has(day) || daily.get(day).time <= time) daily.set(day,{day,value,time});
+ }
+ return [...undated,...[...daily.values()].sort((a,b)=>a.day.localeCompare(b.day))];
+}
+
+function dailyMarketChanges(rows) {
+ const values = new Map(rows.filter(row=>row.day).map(row=>[row.day,row.value]));
+ const changes = new Map();
+ for (const [day,value] of values) {
+  const previous = values.get(shiftChartDay(day,-1));
+  if (previous !== undefined) changes.set(day,value-previous);
+ }
+ return changes;
 }
 
 function comparePlayers(){const a=dataPlayer(S.compareA),b=dataPlayer(S.compareB);if(!a||!b)return toast('Elige dos jugadores para comparar.',true);if(a.id===b.id)return toast('Elige dos jugadores diferentes.',true);const row=(label,av,bv,fmt=num,invert=false)=>{const avn=Number(av),bvn=Number(bv);const valid=av!==null&&bv!==null;return `<div class="compare-row"><span class="${valid&&(invert?avn<bvn:avn>bvn)?'win':''}">${fmt(av)}</span><span>${label}</span><span class="${valid&&(invert?bvn<avn:bvn>avn)?'win':''}">${fmt(bv)}</span></div>`};overlay(`<div class="modal-top"><h2>Dos opciones. Más contexto.</h2><button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div><div class="compare-grid">${[a,b].map(p=>`<div class="compare-player">${p.image?`<img src="${e(p.image)}" alt="">`:''}<h3>${e(p.name)}</h3><p>${e(p.team)} · ${POS[p.position]}</p></div>`).join('')}</div><div style="margin-top:22px">${row('Puntos totales',a.points,b.points,v=>num(v,0))}${row('Media por partido',a.average,b.average)}${row('Últimas cinco',a.recent,b.recent)}${row('Probabilidad titular',a.prob,b.prob,v=>v===null?'—':num(v,0)+'%')}${row('Proyección',a.expected,b.expected)}${row('Valor de mercado',a.value,b.value,formatMoney,true)}${row('Puntos / M €',a.efficiency,b.efficiency,v=>num(v,2))}</div><div class="model-note">${a.position!==b.position?'<strong>Posiciones diferentes.</strong> La comparación no implica que puedas intercambiarlos en un mismo puesto. ':''}La opción más barata no siempre produce la mejor mejora deportiva. Valora tu presupuesto y el riesgo de titularidad.</div>`,true)}
@@ -1870,8 +2455,21 @@ function exportPlan(){download('laguia-plan-jornada-'+(S.week.weekNumber||'actua
 function icsDate(d){return new Date(d).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'')}
 function exportCalendar(){if(!S.calendar.length)return toast('Carga el calendario antes de exportarlo.',true);const escapeIcs=s=>String(s).replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');const events=S.calendar.map(m=>{const d=m.matchDate||m.date,home=S.teams.find(t=>String(t.id)===String(m.localId)),away=S.teams.find(t=>String(t.id)===String(m.visitorId));return ['BEGIN:VEVENT','UID:laguia-'+m.id+'@fantasy-v2','DTSTAMP:'+icsDate(new Date()),'DTSTART:'+icsDate(d),'DTEND:'+icsDate(new Date(new Date(d).getTime()+7200000)),'SUMMARY:'+escapeIcs((home?.name||m.localId)+' vs '+(away?.name||m.visitorId)),'DESCRIPTION:'+escapeIcs('Jornada '+(S.calendarWeek||S.week.weekNumber)+' · LALIGA Fantasy. Horario sujeto a cambios.'),'END:VEVENT'].join('\r\n')});download('laguia-jornada-'+(S.calendarWeek||S.week.weekNumber)+'.ics',['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//LAGUIA//Fantasy V2//ES',...events,'END:VCALENDAR'].join('\r\n'),'text/calendar;charset=utf-8');toast('Calendario exportado.')}
 function updateCountdown(){const el=$('#countdown');if(!el)return;const target=new Date(S.week.openingWeekDate).getTime(),left=Math.max(0,target-Date.now());if(!Number.isFinite(target)){el.textContent='Sin fecha';return}if(left===0){el.textContent=S.week.isLive?'EN JUEGO':'EN CURSO';return}const days=Math.floor(left/86400000),hours=Math.floor(left%86400000/3600000),mins=Math.floor(left%3600000/60000);el.textContent=[days,hours,mins].map(n=>String(n).padStart(2,'0')).join(' : ')}
-function navigate(tab){S.tab=tab;S.page=0;render();window.scrollTo(0,0);if(tab==='calendar'&&(!S.calendar.length||S.calendarWeek!==S.week.weekNumber))loadCalendar();if(tab==='squad'){void loadSquadStats();void loadSquadMarketHistory()}}
-async function refreshAll(){toast('Actualizando los datos de tu liga…');await loadPublic();if(!S.demo)await loadPrivateLeague();else {seedDemo();render();if(S.tab==='squad')void loadSquadStats()}if(S.tab==='calendar')await loadCalendar();toast(S.errors.length?'Algunas fuentes no se han actualizado. Se indica en la página.':'Datos actualizados.',!!S.errors.length)}
+function navigate(tab){S.tab=tab;S.page=0;render();window.scrollTo(0,0);if(tab==='calendar'&&(!S.calendar.length||S.calendarWeek!==S.week.weekNumber))loadCalendar();if(tab==='squad')void loadSquadStats()}
+async function refreshAll(){
+ const league = S.league;
+ toast('Actualizando los datos de tu liga…');
+ await loadPublic();
+ if (!sameLeague(league)) return;
+ if (!S.demo) await loadPrivateLeague();
+ else {
+  invalidateClauseMarket();
+  render();
+  if (S.tab==='squad') void loadSquadStats();
+ }
+ if (S.tab==='calendar') await loadCalendar();
+ if (sameLeague(league)) toast(S.errors.length?'Algunas fuentes no se han actualizado. Se indica en la página.':'Datos actualizados.',!!S.errors.length);
+}
 function watchPlayer(id,button){if(S.watch.includes(id))S.watch=S.watch.filter(v=>v!==id);else S.watch.push(id);saveLocal('lg-v2-watch',S.watch);if(button.hasAttribute('data-watch-drawer')){button.innerHTML=icon(S.watch.includes(id)?'check':'star')+' '+(S.watch.includes(id)?'En tu seguimiento':'Añadir a seguimiento');button.classList.toggle('primary',!S.watch.includes(id));button.classList.toggle('subtle',S.watch.includes(id))}else render();toast(S.watch.includes(id)?'Jugador añadido a tu seguimiento.':'Jugador eliminado de tu seguimiento.')}
 document.addEventListener('click',async event=>{
  if(event.target.closest('[data-official-sync]')) officialSync = S.league;
@@ -1879,11 +2477,22 @@ document.addEventListener('click',async event=>{
  if(button.dataset.tab){closeOverlay();navigate(button.dataset.tab);return}if(button.dataset.league){enterLeague(button.dataset.league);return}if(button.dataset.lineupPick){pickLineupPlayer(button.dataset.lineupPick);return}
  if(button.dataset.useFormation){applyLineupRecommendation(button.dataset.useFormation);return}
  if(button.dataset.lineupSlot&&S.lineupPick){moveLineupPlayer(S.lineupPick,button.dataset.lineupSlot);return}
- if(button.dataset.player){openPlayer(button.dataset.player,button.dataset.playerTeam);return}if(button.dataset.watch){watchPlayer(button.dataset.watch,button);return}if(button.dataset.lock){const id=button.dataset.lock;const next=S.locked.includes(id)?S.locked.filter(x=>x!==id):[...S.locked,id];const result=optimize(S.roster,S.formation,S.risk,next);if(!result)return toast('Esa combinación no permite un once válido. Desfija otro jugador o cambia la formación.',true);S.locked=next;S.lineup=result;S.lineupDirty=true;S.lineupPick=null;render();return}if(button.dataset.position){S.position=button.dataset.position;S.page=0;render();return}if(button.dataset.marketTab){S.marketTab=button.dataset.marketTab;if(S.marketTab!=='league')S.sort=({priceAsc:'cheap',priceDesc:'value'})[S.sort]||S.sort;S.page=0;S.search='';render();return}if(button.dataset.prompt){answerQuestion(button.dataset.prompt);return}if(button.dataset.rival){openRival(button.dataset.rival);return}if(button.dataset.match){showMatch(button.dataset.match);return}if(button.dataset.dismiss){S.dismissed.push(button.dataset.dismiss);saveLocal('lg-v2-dismissed',S.dismissed);render();return}if(button.dataset.setting){S.settings[button.dataset.setting]=!S.settings[button.dataset.setting];saveLocal('lg-v2-settings',S.settings);render();return}
+ if(button.dataset.player){openPlayer(button.dataset.player,button.dataset.playerTeam,!!button.closest('[data-clause-report]'));return}if(button.dataset.watch){watchPlayer(button.dataset.watch,button);return}if(button.dataset.lock){const id=button.dataset.lock;const next=S.locked.includes(id)?S.locked.filter(x=>x!==id):[...S.locked,id];const result=optimize(S.roster,S.formation,S.risk,next);if(!result)return toast('Esa combinación no permite un once válido. Desfija otro jugador o cambia la formación.',true);S.locked=next;S.lineup=result;S.lineupDirty=true;S.lineupPick=null;render();return}if(button.dataset.position){S.position=button.dataset.position;S.page=0;render();return}if(button.dataset.marketTab){S.marketTab=button.dataset.marketTab;if(S.marketTab!=='league')S.sort=({priceAsc:'cheap',priceDesc:'value'})[S.sort]||S.sort;S.page=0;S.search='';render();return}if(button.dataset.prompt){answerQuestion(button.dataset.prompt);return}if(button.dataset.rival){openRival(button.dataset.rival);return}if(button.dataset.match){showMatch(button.dataset.match);return}if(button.dataset.dismiss){S.dismissed.push(button.dataset.dismiss);saveLocal('lg-v2-dismissed',S.dismissed);render();return}if(button.dataset.setting){S.settings[button.dataset.setting]=!S.settings[button.dataset.setting];saveLocal('lg-v2-settings',S.settings);render();return}
  if(button.dataset.tradeListing){openTrade({listingId:button.dataset.tradeListing});return}
  if(button.dataset.tradeClause){openTrade({slotId:button.dataset.tradeClause,sellerId:button.dataset.owner});return}
  if(button.dataset.shieldPlayer){const player=rosterPlayer(button.dataset.shieldPlayer,S.teamId);if(player)openShield(player);return}
  const action=button.dataset.action;if(!action)return;switch(action){
+ case 'team-history':S.squadMetric='complete';squadValueState().mode='7';navigate('squad');break;
+ case 'retry-squad-history':await loadSquadMarketHistory(true);break;
+ case 'refresh-clauses':await loadClauseMarket(true);break;
+ case 'clause-smart':await openClauseReport();break;
+ case 'recommended-clauses':
+  S.clauseMarket.recommended=!S.clauseMarket.recommended;
+  S.page=0;
+  button.setAttribute('aria-pressed',S.clauseMarket.recommended);
+  button.classList.toggle('active',S.clauseMarket.recommended);
+  paintClauseMarket();
+  break;
  case 'my-profile':if(S.teamId)openRival(S.teamId);break;
  case 'sync-official':closeOverlay();officialSync=null;await loadPrivateLeague();break;
  case 'edit-trade':if(tradeDraft){tradeDraft.start=tradeDraft.amount;tradeForm(tradeDraft)}break;
@@ -1898,7 +2507,15 @@ document.addEventListener('submit',event=>{const form=event.target;event.prevent
  }
  return;
 }if(form.id==='login-form')completeLogin(form);if(form.id==='coach-form'){const q=$('#coach-question').value.trim();if(q)answerQuestion(q)}if(form.id==='bid-form'){const p=dataPlayer(form.dataset.bidPlayer);if(!p)return;const bid=Number($('#bid-input').value),remaining=S.balance===null?null:S.balance-bid,premium=p.value>0?(bid-p.value)/p.value*100:null;$('#bid-result').innerHTML=`${premium!==null?`Pagarías <strong>${num(premium)}%</strong> ${premium>=0?'por encima':'por debajo'} del valor de mercado.<br>`:''}${remaining===null?'Actualiza tu saldo para calcular cuánto te quedaría.':`Saldo tras esta compra hipotética: <strong class="${remaining<0?'amber':'green'}">${formatMoney(remaining,false)}</strong>.`}<br>Coste por punto estimado: ${p.expected>0?formatMoney(bid/p.expected,false):'sin proyección suficiente'}.<br>Esto es una simulación; no se ha enviado una puja.`}});
-document.addEventListener('change',event=>{const el=event.target;if(el.id==='squad-metric'&&Object.hasOwn(squadMetrics,el.value)){
+document.addEventListener('change',event=>{const el=event.target;
+ const clauseFilter={'clause-owner':'owner','clause-sort':'sort','clause-position':'position'}[el.id];
+ if(clauseFilter){
+  S.clauseMarket[clauseFilter]=el.value;
+  S.page=0;
+  paintClauseMarket();
+  return;
+ }
+ if(el.id==='squad-metric'&&Object.hasOwn(squadMetrics,el.value)){
  S.squadMetric=el.value;
  $('#squad-value-controls').innerHTML=squadValueControls();
  refreshSquadMetrics();
@@ -1916,9 +2533,25 @@ if(el.dataset.squadValue){
  void loadSquadMarketHistory();
  return;
 }if(el.id==='remember')S.remember=el.checked;if(el.id==='market-seller'){S.marketSeller=el.value;S.page=0;render()}if(el.id==='market-sort'){S.sort=el.value;S.page=0;render()}if(el.id==='compare-a')S.compareA=el.value;if(el.id==='compare-b')S.compareB=el.value;if(el.id==='formation'){S.formation=el.value;const result=optimize(S.roster,S.formation,S.risk,S.locked);if(!result){S.formation='auto';toast('No hay suficientes jugadores para esa formación.',true)}S.lineup=result||optimize(S.roster,'auto',S.risk,S.locked);S.lineupDirty=true;S.lineupPick=null;render()}if(el.id==='risk'){S.risk=el.value;const current=bestLineup();S.lineup=current?lineupFromIds(current.formation,current.players.map(p=>p.id)):null;render()}if(el.id==='planner-budget')S.budget=Math.max(0,Number(el.value)||0)*1e6});
-let searchTimer;document.addEventListener('input',event=>{if(event.target.id==='market-search'){S.search=event.target.value;S.page=0;clearTimeout(searchTimer);searchTimer=setTimeout(()=>{const pos=event.target.selectionStart;render();const input=$('#market-search');input?.focus();try{input?.setSelectionRange(pos,pos)}catch{}},130)}});
+let searchTimer;
+document.addEventListener('input',event=>{
+ const target=event.target;
+ if(target.id!=='market-search') return;
+ S.search=target.value;
+ S.page=0;
+ clearTimeout(searchTimer);
+ searchTimer=setTimeout(()=>{
+  if(!target.isConnected) return;
+  if(isClauseTab()) {paintClauseMarket();return;}
+  const pos=target.selectionStart;
+  render();
+  const input=$('#market-search');
+  input?.focus();
+  try{input?.setSelectionRange(pos,pos)}catch{}
+ },130);
+});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if($('#overlay-root').innerHTML)closeOverlay();else $('#sidebar')?.classList.remove('mobile-open')}if(event.key==='Tab'&&$('#overlay-root').innerHTML){const list=$$('button,a[href],input,textarea,select,[tabindex="0"]',$('[role=dialog]')).filter(el=>!el.disabled);if(list.length){const first=list[0],last=list.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}});
-setInterval(updateCountdown,30000);
+setInterval(()=>{updateCountdown();tickClauseMarket()},30000);
 document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&S.auth.authenticated&&!S.demo){try{S.auth=await api('/api/auth');if(!S.auth.authenticated){S.screen='auth';render();toast('LALIGA necesita que conectes de nuevo tu cuenta.',true)}else if(officialSync&&sameLeague(officialSync)){officialSync=null;closeOverlay();await loadPrivateLeague()}}catch{}}});
 boot();
 </script>

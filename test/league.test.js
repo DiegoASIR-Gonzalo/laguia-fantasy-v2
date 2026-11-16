@@ -95,6 +95,18 @@ test('clausulazo rechecks ownership, cash, protection and agreed release price',
   }
 });
 
+test('clausulazo checks the price and protections on a nested roster slot', async () => {
+  const route = 'POST ' + competition + '/league/' + league + '/buyout/slot-2/pay';
+  const open = await fixture({['GET ' + squad]: [{playerTeam: slot}], [route]: {ok: true}});
+  assert.equal((await open.call(clause))[0], 200);
+  assert.deepEqual(open.requests.at(-1), {key: route, body: {buyoutClauseToPay: 4200000}});
+
+  const protectedSlot = {...slot, isShielded: true};
+  const locked = await fixture({['GET ' + squad]: [{playerTeam: protectedSlot}]});
+  assert.equal((await locked.call(clause))[0], 409);
+  assert.equal(locked.requests.some(r => r.key.startsWith('POST')), false);
+});
+
 test('club actions require same origin, an authenticated session, and league membership', async () => {
   const {requests, call} = await fixture();
   assert.equal((await call(bid, {requestOrigin: 'https://other.test'}))[0], 403);

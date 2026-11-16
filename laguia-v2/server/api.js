@@ -145,16 +145,19 @@ async function clauseAction(input, member, session, fetcher) {
   if (!list(standings).some(row => standingTeamId(row) === sellerId)) {
     throw fail(409, 'El equipo del jugador ya no figura en esta liga.');
   }
-  const player = list(roster).find(row =>
-    String(row.playerTeamId ?? row.id ?? '') === slotId && String(masterOf(row).id ?? '') === playerId);
-  const currentPrice = numeric(player?.buyoutClause);
-  if (!player || !positiveAmount(currentPrice) || currentPrice !== amount) {
+  const player = list(roster).find(row => {
+    const slot = row.playerTeam ?? row;
+    return String(slot.playerTeamId ?? slot.id ?? '') === slotId && String(masterOf(row).id ?? row.playerId ?? '') === playerId;
+  });
+  const slot = player?.playerTeam ?? player;
+  const currentPrice = numeric(slot?.buyoutClause ?? slot?.releaseClause ?? slot?.clauseValue);
+  if (!positiveAmount(currentPrice) || currentPrice !== amount) {
     throw fail(409, 'La propiedad o el importe de la cláusula ha cambiado. Vuelve a abrir la plantilla rival.');
   }
-  if ([true, 'true', 1, '1'].includes(player.isShielded) || Date.parse(player.shieldedEndDate) > Date.now()) {
+  if ([true, 'true', 1, '1'].includes(slot.isShielded) || Date.parse(slot.shieldedEndDate) > Date.now()) {
     throw fail(409, 'El jugador está blindado.');
   }
-  if (Date.parse(player.buyoutClauseLockedEndTime) > Date.now()) {
+  if (Date.parse(slot.buyoutClauseLockedEndTime) > Date.now()) {
     throw fail(409, 'La cláusula todavía está bloqueada.');
   }
   const balance = numeric(money.teamMoney ?? money.balance ?? money.money ?? money.availableMoney);
