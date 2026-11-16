@@ -26,14 +26,20 @@ Cambiar `SESSION_SECRET` invalida las sesiones existentes. Cerrar sesión borra 
 
 ## Funciones incluidas
 
-Inicio de sesión → tus ligas → resumen; plantilla y optimizador de siete formaciones con jugadores fijados; guardado del once tras confirmación; catálogo y mercado de tu liga; comparador; seguimiento; probabilidades; detalles y estadísticas por jornada; histórico de valor cuando está disponible; calculadora de pujas sin envío; clasificación y plantillas rivales; calendario y exportación ICS; radar por eficiencia, racha y titularidad; asistente con cálculos de alineaciones, fichajes, ventas y riesgos; avisos dentro de la app; exportación del plan de jornada.
+- **Resumen** muestra las recompensas diarias de la liga y da acceso a la app oficial para reclamarlas tras el anuncio. Al volver puedes actualizar el estado y el saldo.
+- **Mi plantilla** permite cambiar entre forma, valor, jornadas, próximo rival, nacionalidad, pie dominante, goles, tarjetas, minutos, balón parado, jerarquía y situación de mercado. El escudo identifica el blindaje activo y el botón de blindar lleva al flujo de anuncios de LALIGA Fantasy.
+- **Mercado de mi liga** permite pujar por los jugadores libres y hacer ofertas por los de otros equipos. Las operaciones pasan por una confirmación de importe.
+- **Rivales** abre el perfil del mánager en un cuadro central con clasificación, puntos, valor y plantilla. Las cláusulas muestran su precio y protección. Antes de pagar una cláusula, el servidor comprueba el propietario, el importe y el saldo.
+- También se incluyen optimizador y guardado del once, comparador, seguimiento, histórico de valor, simulador de presupuesto, calendario ICS, radar, asistente y exportación del plan de jornada.
 
-El asistente usa un motor estadístico local, no una API de lenguaje. La proyección base combina 60% media de temporada y 40% últimas cinco jornadas, ajustadas por titularidad. No garantiza resultados. La demo identifica sus ligas, saldo y clasificación como ejemplos. No se envían pujas, ventas ni clausulazos desde el simulador. Seguimiento y preferencias se guardan en este navegador; no hay notificaciones con la aplicación cerrada.
+El asistente usa un motor estadístico local, no una API de lenguaje. La proyección base combina 60% media de temporada y 40% últimas cinco jornadas, ajustadas por titularidad. No garantiza resultados. La demo identifica sus ligas, saldo y clasificación como ejemplos. El simulador calcula presupuestos y la pantalla de mercado confirma las operaciones reales. Seguimiento y preferencias se guardan en este navegador; no hay notificaciones con la aplicación cerrada.
 
 ## Fuentes y límites de validación
 
-Se verificaron conexiones al catálogo, la jornada y las probabilidades: API de LALIGA Fantasy (`fantasy-api.llt-services.com/api`) y endpoint público de titularidad de la web original (`laguia-fantasy.vercel.app/api/titularidad`, basado en FútbolFantasy). Esta última es una dependencia de la web original, no una API oficial documentada de FútbolFantasy. Si falta un dato, se muestra como desconocido. Se indica fecha/jornada de las fuentes y se excluyen probabilidades de otra jornada al calcular proyecciones.
+El catálogo, los datos de liga y las operaciones usan la API de LALIGA Fantasy (`fantasy-api.llt-services.com/api`). La titularidad usa el endpoint público de la web original (`laguia-fantasy.vercel.app/api/titularidad`). Las estadísticas ampliadas se consultan en las alineaciones públicas de FútbolFantasy y se vinculan por equipo y nombre. Los campos sin coincidencia aparecen con un guion. Se indica fecha/jornada de las fuentes y se excluyen probabilidades de otra jornada al calcular proyecciones.
 
-29 pruebas automatizadas cubren el motor, navegación con DOM simulado, código OAuth, renovación, cookie de siete días, revocación, propiedad del equipo y guardado del once. El login completo y la renovación con una cuenta real están pendientes de que el titular conecte su cuenta. No se hizo QA visual en navegador porque el entorno no tenía esa herramienta disponible.
+Las operaciones de mercado, cláusulas y recompensas se probaron con datos de una liga simulada. La vista de plantilla y los perfiles se comprobaron en Chromium de escritorio y móvil.
 
 Herramienta independiente, sin afiliación oficial con LALIGA ni FútbolFantasy. Las APIs no documentadas pueden cambiar. Foto del estadio: Unsplash (photo-1522778119026-d647f0596c20).
+
+Ejecuta `node --test` para verificar los contratos de mercado, cláusulas y estadísticas públicas sin usar una liga real.

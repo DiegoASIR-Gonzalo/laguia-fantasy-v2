@@ -1,3 +1,5 @@
+import {footballFantasyTeam} from './futbolfantasy.js';
+
 const API='https://fantasy-api.llt-services.com/api';
 const IDP='https://login.laliga.es/laligadspprob2c.onmicrosoft.com/oauth2/v2.0/';
 const POLICY='B2C_1A_5ULAIP_PARAMETRIZED_SIGNIN';
@@ -27,9 +29,194 @@ async function sessionFrom(request,env,fetcher,headers){const jar=cookies(reques
 function sessionInfo(s){return {authenticated:!!s,...(s?{managerName:s.managerName,userId:s.userId,expiresAt:new Date(s.until).toISOString(),tokenExpiresAt:new Date(s.expires).toISOString(),renewable:!!s.refresh,remember:s.remember}:{} )}}
 async function official(path,session,fetcher,options={}){return fetcher(API+path+(path.includes('?')?'&':'?')+'x-lang=es',{method:options.method||'GET',headers:{'x-app':'2','x-lang':'es','accept':'application/json','referer':'https://fantasy.laliga.com/',...(session?{authorization:'Bearer '+session.access}:{}),...(options.body?{'content-type':'application/json'}:{})},body:options.body?JSON.stringify(options.body):undefined,signal:AbortSignal.timeout(20000)})}
 const safeId=id=>/^[a-zA-Z0-9_-]{1,100}$/.test(String(id));
-function list(raw,depth=0){if(Array.isArray(raw))return raw;if(!raw||typeof raw!=='object'||depth>4)return [];for(const k of ['leagues','players','playerTeams','teamPlayers','roster','items','data','content','results']){if(Array.isArray(raw[k]))return raw[k];if(raw[k]&&typeof raw[k]==='object'){const values=list(raw[k],depth+1);if(values.length)return values}}return []}
+function list(raw,depth=0){if(Array.isArray(raw))return raw;if(!raw||typeof raw!=='object'||depth>4)return [];for(const k of ['leagues','players','playerTeams','teamPlayers','roster','squad','market','standing','standings','teams','rewards','items','data','content','results','entries']){if(Array.isArray(raw[k]))return raw[k];if(raw[k]&&typeof raw[k]==='object'){const values=list(raw[k],depth+1);if(values.length)return values}}return []}
 function teamFor(league){return String(league.team?.id??league.myTeam?.id??league.userTeam?.id??league.ownTeam?.id??league.teamId??league.myTeamId??league.userTeamId??'')}
 async function verifyOwnTeam(teamId,session,fetcher){const response=await official('/v1/competition/1/leagues',session,fetcher);if(!response.ok)throw Object.assign(Error('No se pudo verificar tu equipo. Actualiza tus ligas.'),{status:403});const leagues=list(await response.json());const league=leagues.find(l=>teamFor(l)===teamId);if(!league)throw Object.assign(Error('Esta operación solo está disponible para tu propio equipo.'),{status:403});return league}
+const competition = '/v1/competition/1';
+const leagueActionsInFlight = new Set();
+const fail = (status, message) => Object.assign(Error(message), {status});
+const numeric = value => (typeof value !== 'string' && typeof value !== 'number') || value === ''
+  ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+const positiveAmount = value => Number.isSafeInteger(value) && value > 0;
+const validId = value => typeof value === 'string' && safeId(value);
+const masterOf = row => row.playerMaster ?? row.playerTeam?.playerMaster ?? row.player?.playerMaster ?? row.player ?? {};
+const standingTeamId = row => String(row.teamId ?? row.team?.id ?? row.id ?? '');
+
+async function upstreamJson(response) {
+  return response.json().catch(() => null);
+}
+
+async function gameRead(path, session, fetcher) {
+  const response = await official(path, session, fetcher);
+  if (response.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');
+  if (!response.ok) throw fail(502, 'No se pudo verificar la información con LALIGA. Actualiza e inténtalo de nuevo.');
+  const value = await upstreamJson(response);
+  if (value === null) throw fail(502, 'LALIGA no ha devuelto información válida.');
+  return value;
+}
+
+async function leagueMember(id, session, fetcher) {
+  const leagues = list(await gameRead(competition + '/leagues', session, fetcher));
+  const league = leagues.find(row => String(row.id ?? row.leagueId ?? row.league?.id ?? '') === id);
+  if (!league) throw fail(403, 'Tu cuenta no pertenece a esa liga.');
+
+  let teamId = teamFor(league);
+  if (!teamId) {
+    const [me, standings] = await Promise.all([
+      gameRead('/v4/user/me', session, fetcher),
+      gameRead(competition + '/leagues/' + id + '/standing', session, fetcher),
+    ]);
+    const userId = String(me.id ?? me.userId ?? '');
+    const own = list(standings).find(row =>
+      row.isMyTeam === true || (userId && String(row.userId ?? row.team?.manager?.id ?? '') === userId));
+    teamId = own ? standingTeamId(own) : '';
+  }
+  if (!safeId(teamId)) throw fail(403, 'LALIGA no ha identificado tu equipo en esta liga.');
+  return {id, teamId, league};
+}
+
+async function leagueReward(member, session, fetcher) {
+  const {id, teamId, league} = member;
+  const [status, catalogue] = await Promise.all([
+    official(competition + '/league/' + id + '/team/' + teamId + '/check-daily-reward', session, fetcher),
+    official(competition + '/daily-reward', session, fetcher).catch(() => null),
+  ]);
+  if (status.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');
+  const progress = await upstreamJson(status);
+  const type = league.isPremium === true ? 'premium' :
+    String(league.leagueType ?? league.type ?? league.discr ?? league.league?.type ?? '').toLowerCase();
+  const plan = catalogue?.ok ? list(await upstreamJson(catalogue)).find(item => item.leagueType === type) : null;
+  const limit = numeric(plan?.dailyLimit);
+  const count = numeric(progress?.dailyRewardsRedeemed);
+  if (String(progress?.errorCode) === '050.01.04') return {available: false, remaining: 0, claimed: limit};
+  if (!status.ok || count === null) return {available: null};
+  const remaining = limit === null ? null : Math.max(0, limit - count);
+  return {available: remaining === null || remaining > 0, remaining, claimed: count, amount: numeric(plan?.money)};
+}
+
+function bidRecord(listing) {
+  const detail = listing.bid ?? listing.myBid ?? listing.offer ?? listing.myOffer;
+  if (['cancelled', 'rejected', 'expired', 'outdated'].includes(detail?.status)) return '';
+  return String(detail?.id ?? listing.bidId ?? listing.myBidId ?? '');
+}
+
+async function marketAction(input, member, session, fetcher) {
+  const {id, teamId} = member;
+  const {action, listingId, playerId, amount, previousBidId} = input;
+  if (!validId(listingId) || (previousBidId !== undefined && !validId(previousBidId))) {
+    throw fail(400, 'No se ha identificado el anuncio o la puja.');
+  }
+  const marketPath = competition + '/league/' + id + '/market';
+  const market = list(await gameRead(marketPath, session, fetcher));
+  const listing = market.find(row => String(row.id) === listingId && String(masterOf(row).id ?? '') === playerId);
+  if (!listing || Date.parse(listing.expirationDate) <= Date.now()) {
+    throw fail(409, 'El anuncio ya no está disponible. Actualiza el mercado.');
+  }
+  if (String(listing.sellerTeam?.id ?? listing.sellerTeamId ?? '') === teamId) {
+    throw fail(400, 'El jugador está en tu equipo.');
+  }
+
+  const previous = bidRecord(listing);
+  if (action === 'offer') {
+    if (listing.discr !== 'marketPlayerTeam') throw fail(409, 'El anuncio ya no admite ofertas.');
+    if (previous) throw fail(409, 'Ya tienes una oferta pendiente por este jugador.');
+    return {path: marketPath + '/' + listingId + '/offer', method: 'POST', body: {money: amount}};
+  }
+
+  if (listing.discr !== 'marketPlayerLeague') throw fail(409, 'El anuncio ya no admite pujas.');
+  if ((previousBidId ?? '') !== previous) throw fail(409, 'Tu puja ha cambiado. Actualiza el mercado antes de repetirla.');
+  const minimum = Math.max(numeric(listing.salePrice) ?? 0, numeric(masterOf(listing).marketValue) ?? 0);
+  if (amount < minimum) throw fail(409, 'El importe es inferior al mínimo actual de ' + minimum.toLocaleString('es-ES') + ' €.');
+  const path = marketPath + '/' + listingId + '/bid';
+  return {path: previous ? path + '/' + previous : path, method: previous ? 'PUT' : 'POST', body: {money: amount}};
+}
+
+async function clauseAction(input, member, session, fetcher) {
+  const {id, teamId} = member;
+  const {sellerId, slotId, playerId, amount} = input;
+  if (!validId(sellerId) || !validId(slotId)) throw fail(400, 'Falta el equipo rival o la ficha del jugador.');
+  if (sellerId === teamId) throw fail(400, 'El jugador ya está en tu equipo.');
+  const leaguePath = competition + '/leagues/' + id;
+  const [standings, roster, money] = await Promise.all([
+    gameRead(leaguePath + '/standing', session, fetcher),
+    gameRead(leaguePath + '/teams/' + sellerId, session, fetcher),
+    gameRead(competition + '/teams/' + teamId + '/money', session, fetcher),
+  ]);
+  if (!list(standings).some(row => standingTeamId(row) === sellerId)) {
+    throw fail(409, 'El equipo del jugador ya no figura en esta liga.');
+  }
+  const player = list(roster).find(row =>
+    String(row.playerTeamId ?? row.id ?? '') === slotId && String(masterOf(row).id ?? '') === playerId);
+  const currentPrice = numeric(player?.buyoutClause);
+  if (!player || !positiveAmount(currentPrice) || currentPrice !== amount) {
+    throw fail(409, 'La propiedad o el importe de la cláusula ha cambiado. Vuelve a abrir la plantilla rival.');
+  }
+  if ([true, 'true', 1, '1'].includes(player.isShielded) || Date.parse(player.shieldedEndDate) > Date.now()) {
+    throw fail(409, 'El jugador está blindado.');
+  }
+  if (Date.parse(player.buyoutClauseLockedEndTime) > Date.now()) {
+    throw fail(409, 'La cláusula todavía está bloqueada.');
+  }
+  const balance = numeric(money.teamMoney ?? money.balance ?? money.money ?? money.availableMoney);
+  if (balance === null) throw fail(502, 'No se ha podido comprobar el saldo de tu equipo.');
+  if (balance < amount) throw fail(409, 'Tu saldo actual no cubre la cláusula.');
+  return {
+    path: competition + '/league/' + id + '/buyout/' + slotId + '/pay',
+    method: 'POST',
+    body: {buyoutClauseToPay: amount},
+  };
+}
+
+const writeErrors = {
+  '030.01.17': 'Los clausulazos se reabren cuando empieza la jornada.',
+  '030.01.99': 'Ya tienes una oferta pendiente por este jugador.',
+};
+
+async function submitLeagueAction(input, session, fetcher) {
+  const {action, leagueId, playerId, amount} = input ?? {};
+  if (!['bid', 'offer', 'clause'].includes(action) || !validId(leagueId) || !validId(playerId) || !positiveAmount(amount)) {
+    throw fail(400, 'Operación, jugador o importe no válido.');
+  }
+  const member = await leagueMember(leagueId, session, fetcher);
+  const lock = leagueId + '/' + member.teamId;
+  if (leagueActionsInFlight.has(lock)) throw fail(409, 'Ya hay una operación en curso en esta liga.');
+  leagueActionsInFlight.add(lock);
+  try {
+    const {path, method, body} = action === 'clause'
+      ? await clauseAction(input, member, session, fetcher)
+      : await marketAction(input, member, session, fetcher);
+    const response = await official(path, session, fetcher, {method, body})
+      .catch(() => { throw fail(502, 'No se pudo confirmar la operación. Actualiza tu liga para comprobar el resultado.'); });
+    if (response.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');
+    if (response.status >= 500) throw fail(502, 'LALIGA no confirmó la operación. Actualiza tu liga para comprobar el resultado.');
+    if (!response.ok) {
+      const error = await upstreamJson(response);
+      throw fail(409, writeErrors[String(error?.errorCode)] ||
+        'LALIGA rechazó la operación. Revisa el saldo, el estado del jugador y las reglas de la liga.');
+    }
+  } finally {
+    leagueActionsInFlight.delete(lock);
+  }
+}
+
+async function leagueEndpoint(request, url, session, fetcher, headers) {
+  if (request.method === 'GET') {
+    const leagueId = url.searchParams.get('id');
+    if (!validId(leagueId)) throw fail(400, 'Selecciona una liga válida.');
+    const member = await leagueMember(leagueId, session, fetcher);
+    return new Response(JSON.stringify({teamId: member.teamId, reward: await leagueReward(member, session, fetcher)}), {headers});
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    throw fail(400, 'Envía una operación en formato JSON.');
+  }
+  await submitLeagueAction(body, session, fetcher);
+  return new Response(JSON.stringify({ok: true}), {headers});
+}
+
 export async function handleApi(request,env,fetcher=fetch){const url=new URL(request.url);const headers=new Headers({'cache-control':'no-store','content-type':'application/json; charset=utf-8','x-content-type-options':'nosniff'});try{
  const origin=request.headers.get('origin');if(!['GET','HEAD'].includes(request.method)&&origin!==url.origin)return json({error:'La solicitud debe proceder de esta página.'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204});
@@ -52,6 +239,21 @@ export async function handleApi(request,env,fetcher=fetch){const url=new URL(req
  }
  if(url.pathname==='/api/auth'&&request.method==='DELETE'){clearSession(headers);return new Response(JSON.stringify({authenticated:false}),{headers})}
  if(url.pathname==='/api/auth'&&request.method==='GET'){const s=await sessionFrom(request,env,fetcher,headers);return new Response(JSON.stringify(sessionInfo(s)),{headers})}
+ if(url.pathname==='/api/league'){
+  if(!['GET','POST'].includes(request.method))return json({error:'Método no admitido.'},405);
+  const session=await sessionFrom(request,env,fetcher,headers);
+  if(!session)return new Response(JSON.stringify({error:'Conecta tu cuenta para gestionar tu liga.'}),{status:401,headers});
+  try{return await leagueEndpoint(request,url,session,fetcher,headers)}
+  catch(error){if(error.status===401)clearSession(headers);throw error}
+ }
+ if(url.pathname==='/api/ff'&&url.searchParams.has('team')){
+  if(request.method!=='GET')return json({error:'Método no admitido.'},405);
+  const slug=url.searchParams.get('team');
+  if(!/^[a-z0-9-]{1,70}$/.test(slug))return json({error:'Equipo no válido.'},400);
+  const stats=await footballFantasyTeam(slug,fetcher);
+  if(!stats)return json({error:'FútbolFantasy no publica datos de ese equipo para la jornada.'},404);
+  return json(stats,200,{'cache-control':'public, max-age=300, stale-while-revalidate=300'});
+ }
  if(url.pathname==='/api/ff'){
   if(request.method!=='GET')return json({error:'Método no admitido.'},405);const r=await fetcher('https://laguia-fantasy.vercel.app/api/titularidad',{headers:{accept:'application/json'},signal:AbortSignal.timeout(15000)});if(!r.ok)return json({error:'FútbolFantasy no está disponible. Se conservan los últimos datos con su fecha.'},502);headers.set('cache-control','public, max-age=300');return new Response(r.body,{headers});
  }
