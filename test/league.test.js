@@ -132,3 +132,29 @@ test('reward availability is read for the signed-in team', async () => {
   const limit = await fixture({...overrides, [check]: Response.json({errorCode: '050.01.04'}, {status: 400})});
   assert.equal((await limit.call(null, {url}))[1].reward.available, false);
 });
+
+test('daily reward claim posts the signed-in team and the rewarded-ad flag', async () => {
+  const route = 'POST ' + competition + '/league/' + league + '/team/daily-reward';
+  const {requests, call} = await fixture({[route]: {ok: true}});
+  assert.deepEqual(await call({action: 'reward', leagueId: league}), [200, {ok: true}]);
+  assert.deepEqual(requests.at(-1), {
+    key: route, body: {rewardedAdType: 'dailyreward', rewardedAd: 1, teamId: own},
+  });
+});
+
+test('daily reward claim stops when LALIGA says it is already collected', async () => {
+  const route = 'POST ' + competition + '/league/' + league + '/team/daily-reward';
+  const limited = await fixture({[route]: Response.json({errorCode: '050.01.04'}, {status: 400})});
+  const [status, body] = await limited.call({action: 'reward', leagueId: league});
+  assert.equal(status, 409);
+  assert.match(body.error, /reclamado todas las recompensas/i);
+});
+
+test('daily reward claim requires origin, session and membership', async () => {
+  const route = 'POST ' + competition + '/league/' + league + '/team/daily-reward';
+  const {requests, call} = await fixture({[route]: {ok: true}});
+  assert.equal((await call({action: 'reward', leagueId: league}, {requestOrigin: 'https://other.test'}))[0], 403);
+  assert.equal((await call({action: 'reward', leagueId: league}, {signed: false}))[0], 401);
+  assert.equal((await call({action: 'reward', leagueId: 'other'}))[0], 403);
+  assert.equal(requests.some(r => r.key === route), false);
+});

@@ -94,6 +94,28 @@ async function leagueReward(member, session, fetcher) {
   return {available: remaining === null || remaining > 0, remaining, claimed: count, amount: numeric(plan?.money)};
 }
 
+const rewardErrors = {
+  '050.01.04': 'Ya has reclamado todas las recompensas de hoy en esta liga.',
+  '050.01.05': 'La recompensa diaria todavía no está disponible.',
+};
+
+async function claimDailyReward(member, session, fetcher) {
+  const {id, teamId} = member;
+  const path = competition + '/league/' + id + '/team/daily-reward';
+  const response = await official(path, session, fetcher, {
+    method: 'POST',
+    body: {rewardedAdType: 'dailyreward', rewardedAd: 1, teamId},
+  }).catch(() => {
+    throw fail(502, 'No se pudo confirmar la recompensa. Comprueba el saldo antes de reintentarlo.');
+  });
+  if (response.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');
+  if (!response.ok) {
+    const error = await upstreamJson(response);
+    throw fail(409, rewardErrors[String(error?.errorCode ?? '')] ||
+      'LALIGA no ha aceptado la recompensa. Inténtalo de nuevo más tarde.');
+  }
+}
+
 function bidRecord(listing) {
   const detail = listing.bid ?? listing.myBid ?? listing.offer ?? listing.myOffer;
   if (['cancelled', 'rejected', 'expired', 'outdated'].includes(detail?.status)) return '';
@@ -177,7 +199,9 @@ const writeErrors = {
 
 async function submitLeagueAction(input, session, fetcher) {
   const {action, leagueId, playerId, amount} = input ?? {};
-  if (!['bid', 'offer', 'clause'].includes(action) || !validId(leagueId) || !validId(playerId) || !positiveAmount(amount)) {
+  const reward = action === 'reward';
+  if (!['bid', 'offer', 'clause', 'reward'].includes(action) || !validId(leagueId) ||
+      (!reward && (!validId(playerId) || !positiveAmount(amount)))) {
     throw fail(400, 'Operación, jugador o importe no válido.');
   }
   const member = await leagueMember(leagueId, session, fetcher);
@@ -185,6 +209,10 @@ async function submitLeagueAction(input, session, fetcher) {
   if (leagueActionsInFlight.has(lock)) throw fail(409, 'Ya hay una operación en curso en esta liga.');
   leagueActionsInFlight.add(lock);
   try {
+    if (reward) {
+      await claimDailyReward(member, session, fetcher);
+      return;
+    }
     const {path, method, body} = action === 'clause'
       ? await clauseAction(input, member, session, fetcher)
       : await marketAction(input, member, session, fetcher);

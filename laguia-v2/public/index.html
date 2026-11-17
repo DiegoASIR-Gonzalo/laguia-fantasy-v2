@@ -1158,6 +1158,7 @@ function playerOptions(selected) {
 }
 let officialSync = null;
 let rewardCheckInFlight = null;
+let claimRewardInFlight = null;
 
 function rewardDescription(reward) {
  if (reward?.available === false) return 'Hoy ya has reclamado todas las recompensas de esta liga.';
@@ -1168,28 +1169,32 @@ function rewardDescription(reward) {
 }
 
 function rewardView() {
+ const available = S.reward?.available === true;
  return `<section class="panel daily-reward">
   <div><h2>${icon('trophy')} Recompensa diaria</h2>
    <p class="hint">${e(S.demo ? 'Conecta tu cuenta para consultar las recompensas de tu liga.' : rewardDescription(S.reward))}</p>
   </div>
   <div class="row-actions">${S.demo ? '<button class="btn small" data-action="connect">Conectar cuenta</button>' :
-   '<button class="btn primary small" data-action="daily-reward">Ver recompensa</button>'}</div>
+   `<button class="btn ${available ? 'primary ' : ''}small" data-action="daily-reward">${available ? 'Reclamar recompensa' : 'Ver recompensa'}</button>`}</div>
  </section>`;
 }
 
 function openDailyReward() {
  if (S.demo || !S.teamId || !sameLeague(S.league)) return;
- const title = S.reward?.available === true ? '¡Puedes reclamar tu recompensa diaria!' : 'Recompensa diaria';
+ const available = S.reward?.available === true;
+ const pending = available ? Math.max(0, Number(S.reward?.remaining) || 1) : 0;
+ const title = available ? '¡Puedes reclamar tu recompensa diaria!' : 'Recompensa diaria';
  overlay(`<section class="reward-dialog" data-reward-dialog>
   <button class="icon-btn reward-close" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button>
   <div class="reward-icon">${icon('trophy')}</div>
   <h2>${title}</h2>
   <p>${e(rewardDescription(S.reward))}</p>
   <div class="reward-current"><span>Saldo actual</span><strong data-reward-current>${fmtFull(S.balance)}</strong></div>
-  <p class="hint">${S.reward?.available===false?'Consulta el saldo que devuelve LaLiga.':'En la app de LaLiga, entra en tu liga y reclama la recompensa tras ver el anuncio. Al volver, el saldo se comprueba automáticamente.'}</p>
+  <p class="hint">${available ? 'Reclama aquí las monedas de hoy. Si LALIGA no confirma el cobro, actualiza el estado o ábrela en su app.' : 'Consulta el saldo que devuelve LaLiga. Si acabas de reclamarla en la app oficial, comprueba el saldo.'}</p>
   <div class="reward-actions">
-   ${S.reward?.available!==false?`<a class="btn primary reward-app-launch" href="${e(officialAppLaunch)}">
-    ${icon('external')} Abrir app de LaLiga</a>`:''}
+   ${available ? `<button class="btn primary" data-action="claim-reward">${icon('trophy')} Reclamar${pending > 1 ? ' las ' + pending + ' recompensas' : ' recompensa'}</button>` : ''}
+   ${available ? `<a class="btn reward-app-launch" href="${e(officialAppLaunch)}">
+    ${icon('external')} Abrir app de LaLiga</a>` : ''}
    <button class="btn" data-action="verify-reward">${icon('refresh')} Comprobar saldo</button>
   </div>
   <p class="hint reward-feedback" data-reward-feedback aria-live="polite"></p>
@@ -1250,7 +1255,7 @@ function showRewardBalance({before, after}) {
 async function verifyDailyReward(button) {
  const league=S.league;
  const teamId=S.teamId;
- if (!sameLeague(league) || S.demo || !teamId || rewardCheckInFlight?.league===league) return;
+ if (!sameLeague(league) || S.demo || !teamId || rewardCheckInFlight?.league===league || claimRewardInFlight===league) return;
  const check=rewardCheckInFlight={league};
  const rewardRevision=++rewardStatusRevision;
  const feedback=$('[data-reward-feedback]');
@@ -1273,12 +1278,69 @@ async function verifyDailyReward(button) {
   if (recordRewardBalance()) return;
   const displayed=$('[data-reward-current]');
   if (displayed) displayed.textContent=fmtFull(balance);
-  message(S.reward.available ? 'LaLiga aún muestra una recompensa disponible. Reclámala desde su app.' : 'LaLiga indica que ya has reclamado la recompensa.');
+  message(S.reward.available ? 'LaLiga aún muestra una recompensa disponible. Puedes reclamarla desde aquí.' : 'LaLiga indica que ya has reclamado la recompensa.');
  } catch(error) {
   if(sameLeague(league)) message(error.message);
  } finally {
   if(rewardCheckInFlight===check) rewardCheckInFlight=null;
   if(button?.isConnected) button.disabled=false;
+ }
+}
+
+async function claimDailyReward(button) {
+ const league = S.league;
+ const teamId = S.teamId;
+ if (!canTrade() || !teamId || !sameLeague(league) || claimRewardInFlight === league || rewardCheckInFlight?.league === league) return;
+ claimRewardInFlight = league;
+ const rewardRevision = ++rewardStatusRevision;
+ const feedback = $('[data-reward-feedback]');
+ const total = Math.max(1, Math.min(5, Number(S.reward?.remaining) || 1));
+ let claimed = 0, problem = '';
+ if (button) button.disabled = true;
+ try {
+  for (let i = 0; i < total; i++) {
+   if (feedback?.isConnected) feedback.textContent = 'Recogiendo recompensa ' + (i + 1) + ' de ' + total + '…';
+   try {
+    await api('/api/league', {method: 'POST', body: JSON.stringify({action: 'reward', leagueId: league.id})});
+    claimed++;
+   } catch (error) {
+    problem = error.message;
+    if (feedback?.isConnected) feedback.textContent = error.message;
+    break;
+   }
+  }
+  if (!sameLeague(league) || rewardRevision !== rewardStatusRevision) return;
+  const [status, money] = await Promise.allSettled([
+   api('/api/league?id=' + encodeURIComponent(league.id)),
+   data(privateBase + '/teams/' + encodeURIComponent(teamId) + '/money'),
+  ]);
+  if (!sameLeague(league) || rewardRevision !== rewardStatusRevision) return;
+  if (status.status === 'fulfilled' && status.value.teamId === teamId) S.reward = status.value.reward ?? S.reward;
+  const balance = money.status === 'fulfilled'
+   ? numberOrNull(field(money.value, ['teamMoney', 'money', 'balance', 'availableMoney'])) : null;
+  if (balance !== null) {
+   if (S.budget === (S.balance ?? 0)) S.budget = balance;
+   S.balance = balance;
+  }
+  if (claimed && $('[data-reward-dialog]')) closeOverlay();
+  render();
+  if (recordRewardBalance()) return;
+  if (claimed) {
+   const done = 'Recompensa' + (claimed > 1 ? 's' : '') + ' recogida' + (claimed > 1 ? 's' : '') +
+    (S.balance !== null ? '. Saldo actual: ' + fmtFull(S.balance) : '') + '.';
+   const extra = problem && !/ya has reclamado/i.test(problem) ? ' ' + problem : '';
+   toast(done + extra);
+  } else {
+   toast(problem || 'No se ha podido recoger la recompensa.', true);
+  }
+ } catch (error) {
+  if (sameLeague(league)) {
+   if (feedback?.isConnected) feedback.textContent = error.message;
+   else toast(error.message, true);
+  }
+ } finally {
+  if (claimRewardInFlight === league) claimRewardInFlight = null;
+  if (button?.isConnected) button.disabled = false;
  }
 }
 
@@ -3204,6 +3266,7 @@ document.addEventListener('click',async event=>{
   break;
  case 'my-profile':if(S.teamId)openRival(S.teamId);break;
  case 'daily-reward':openDailyReward();break;
+ case 'claim-reward':await claimDailyReward(button);break;
  case 'verify-reward':await verifyDailyReward(button);break;
  case 'sync-official':closeOverlay();officialSync=null;await loadPrivateLeague();break;
  case 'edit-trade':if(tradeDraft){tradeDraft.start=tradeDraft.amount;tradeForm(tradeDraft)}break;
