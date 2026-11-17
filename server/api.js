@@ -46,6 +46,34 @@ async function upstreamJson(response) {
   return response.json().catch(() => null);
 }
 
+function deepNumber(node, keys, depth = 3) {
+  if (!node || typeof node !== 'object' || depth < 0) return null;
+  for (const key of keys) {
+    const value = numeric(node[key]);
+    if (value !== null) return value;
+  }
+  for (const value of Object.values(node)) {
+    if (value && typeof value === 'object') {
+      const found = deepNumber(value, keys, depth - 1);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+function rewardPlan(data, type) {
+  const items = list(data);
+  const pool = items.length ? items : data && typeof data === 'object' ? [data] : [];
+  const wanted = String(type || '').toLowerCase();
+  const typeOf = item => String(item?.leagueType ?? item?.type ?? item?.league?.type ?? item?.discr ?? '').toLowerCase();
+  const limitOf = item => deepNumber(item, ['dailyLimit', 'daily_limit', 'limit']);
+  const chosen = pool.find(item => limitOf(item) !== null && (!wanted || !typeOf(item) || typeOf(item) === wanted)) ??
+    pool.find(item => limitOf(item) !== null) ?? (pool.length === 1 ? pool[0] : null);
+  return chosen
+    ? {limit: limitOf(chosen), money: deepNumber(chosen, ['money', 'amount', 'dailyMoney', 'rewardMoney'])}
+    : {limit: null, money: null};
+}
+
 async function gameRead(path, session, fetcher) {
   const response = await official(path, session, fetcher);
   if (response.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');
@@ -85,13 +113,13 @@ async function leagueReward(member, session, fetcher) {
   const progress = await upstreamJson(status);
   const type = league.isPremium === true ? 'premium' :
     String(league.leagueType ?? league.type ?? league.discr ?? league.league?.type ?? '').toLowerCase();
-  const plan = catalogue?.ok ? list(await upstreamJson(catalogue)).find(item => item.leagueType === type) : null;
-  const limit = numeric(plan?.dailyLimit);
+  const plan = catalogue?.ok ? rewardPlan(await upstreamJson(catalogue), type) : {limit: null, money: null};
+  const limit = plan.limit;
   const count = numeric(progress?.dailyRewardsRedeemed);
   if (String(progress?.errorCode) === '050.01.04') return {available: false, remaining: 0, claimed: limit};
   if (!status.ok || count === null) return {available: null};
   const remaining = limit === null ? null : Math.max(0, limit - count);
-  return {available: remaining === null || remaining > 0, remaining, claimed: count, amount: numeric(plan?.money)};
+  return {available: remaining === null || remaining > 0, remaining, claimed: count, amount: plan.money};
 }
 
 const rewardErrors = {
@@ -114,6 +142,10 @@ async function claimDailyReward(member, session, fetcher) {
     throw fail(409, rewardErrors[String(error?.errorCode ?? '')] ||
       'LALIGA no ha aceptado la recompensa. Inténtalo de nuevo más tarde.');
   }
+  // Devuelve el estado ya actualizado para saber cuántas quedan sin otra ronda de peticiones.
+  let reward = null;
+  try { reward = await leagueReward(member, session, fetcher); } catch {}
+  return {reward};
 }
 
 function bidRecord(listing) {
@@ -210,8 +242,7 @@ async function submitLeagueAction(input, session, fetcher) {
   leagueActionsInFlight.add(lock);
   try {
     if (reward) {
-      await claimDailyReward(member, session, fetcher);
-      return;
+      return claimDailyReward(member, session, fetcher);
     }
     const {path, method, body} = action === 'clause'
       ? await clauseAction(input, member, session, fetcher)
@@ -244,8 +275,8 @@ async function leagueEndpoint(request, url, session, fetcher, headers) {
   } catch {
     throw fail(400, 'Envía una operación en formato JSON.');
   }
-  await submitLeagueAction(body, session, fetcher);
-  return new Response(JSON.stringify({ok: true}), {headers});
+  const result = await submitLeagueAction(body, session, fetcher);
+  return new Response(JSON.stringify({ok: true, ...(result || {})}), {headers});
 }
 
 export async function handleApi(request,env,fetcher=fetch){const url=new URL(request.url);const headers=new Headers({'cache-control':'no-store','content-type':'application/json; charset=utf-8','x-content-type-options':'nosniff'});try{

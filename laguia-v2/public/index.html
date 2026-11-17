@@ -1160,22 +1160,33 @@ let officialSync = null;
 let rewardCheckInFlight = null;
 let claimRewardInFlight = null;
 
+function rewardPendingTotal(reward = S.reward) {
+ const amount = Number(reward?.amount);
+ if (!Number.isFinite(amount) || amount <= 0) return null;
+ return amount * Math.max(1, Number(reward?.remaining) || 1);
+}
+
 function rewardDescription(reward) {
  if (reward?.available === false) return 'Hoy ya has reclamado todas las recompensas de esta liga.';
  if (reward?.available !== true) return 'Estado pendiente de comprobar.';
- const left = reward.remaining === null ? 'Disponible hoy' :
-  reward.remaining + (reward.remaining === 1 ? ' disponible' : ' disponibles');
- return left + (reward.amount != null ? ' · ' + fmtFull(reward.amount) + ' cada una' : '');
+ const known = reward.remaining !== null && reward.remaining !== undefined;
+ const count = Number(reward.remaining);
+ const total = rewardPendingTotal(reward);
+ const left = known
+  ? count + (count === 1 ? ' disponible hoy' : ' disponibles hoy')
+  : 'Disponible hoy';
+ return left + (total !== null ? ' · +' + fmtFull(total) + (known && count > 1 ? ' en total' : '') : '');
 }
 
 function rewardView() {
  const available = S.reward?.available === true;
+ const total = available ? rewardPendingTotal() : null;
  return `<section class="panel daily-reward">
   <div><h2>${icon('trophy')} Recompensa diaria</h2>
    <p class="hint">${e(S.demo ? 'Conecta tu cuenta para consultar las recompensas de tu liga.' : rewardDescription(S.reward))}</p>
   </div>
   <div class="row-actions">${S.demo ? '<button class="btn small" data-action="connect">Conectar cuenta</button>' :
-   `<button class="btn ${available ? 'primary ' : ''}small" data-action="daily-reward">${available ? 'Reclamar recompensa' : 'Ver recompensa'}</button>`}</div>
+   `<button class="btn ${available ? 'primary ' : ''}small" data-action="daily-reward">${available ? 'Reclamar' + (total !== null ? ' +' + fmtFull(total) : ' recompensa') : 'Ver recompensa'}</button>`}</div>
  </section>`;
 }
 
@@ -1183,16 +1194,19 @@ function openDailyReward() {
  if (S.demo || !S.teamId || !sameLeague(S.league)) return;
  const available = S.reward?.available === true;
  const pending = available ? Math.max(0, Number(S.reward?.remaining) || 1) : 0;
+ const unit = Number(S.reward?.amount);
+ const total = available ? rewardPendingTotal() : null;
  const title = available ? '¡Puedes reclamar tu recompensa diaria!' : 'Recompensa diaria';
  overlay(`<section class="reward-dialog" data-reward-dialog>
   <button class="icon-btn reward-close" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button>
   <div class="reward-icon">${icon('trophy')}</div>
   <h2>${title}</h2>
   <p>${e(rewardDescription(S.reward))}</p>
+  ${available ? `<div class="reward-current"><span>Puedes recoger ahora</span><strong>${total !== null ? '+' + fmtFull(total) : pending + ' recompensa' + (pending > 1 ? 's' : '')}</strong>${pending > 1 && Number.isFinite(unit) && unit > 0 ? `<small class="hint">${pending} × ${fmtFull(unit)}</small>` : ''}</div>` : ''}
   <div class="reward-current"><span>Saldo actual</span><strong data-reward-current>${fmtFull(S.balance)}</strong></div>
   <p class="hint">${available ? 'Reclama aquí las monedas de hoy. Si LALIGA no confirma el cobro, actualiza el estado o ábrela en su app.' : 'Consulta el saldo que devuelve LaLiga. Si acabas de reclamarla en la app oficial, comprueba el saldo.'}</p>
   <div class="reward-actions">
-   ${available ? `<button class="btn primary" data-action="claim-reward">${icon('trophy')} Reclamar${pending > 1 ? ' las ' + pending + ' recompensas' : ' recompensa'}</button>` : ''}
+   ${available ? `<button class="btn primary" data-action="claim-reward">${icon('trophy')} Reclamar${total !== null ? ' +' + fmtFull(total) : ' recompensa'}</button>` : ''}
    ${available ? `<a class="btn reward-app-launch" href="${e(officialAppLaunch)}">
     ${icon('external')} Abrir app de LaLiga</a>` : ''}
    <button class="btn" data-action="verify-reward">${icon('refresh')} Comprobar saldo</button>
@@ -1294,15 +1308,21 @@ async function claimDailyReward(button) {
  claimRewardInFlight = league;
  const rewardRevision = ++rewardStatusRevision;
  const feedback = $('[data-reward-feedback]');
- const total = Math.max(1, Math.min(5, Number(S.reward?.remaining) || 1));
+ const known = S.reward?.remaining;
+ const unknown = known === null || known === undefined;
+ const cap = unknown ? 3 : Math.max(1, Number(known) || 1);
  let claimed = 0, problem = '';
  if (button) button.disabled = true;
  try {
-  for (let i = 0; i < total; i++) {
-   if (feedback?.isConnected) feedback.textContent = 'Recogiendo recompensa ' + (i + 1) + ' de ' + total + '…';
+  for (let i = 0; i < cap; i++) {
+   if (feedback?.isConnected) feedback.textContent = unknown ?
+    'Recogiendo recompensa ' + (i + 1) + '…' :
+    'Recogiendo recompensa ' + (i + 1) + ' de ' + cap + '…';
    try {
-    await api('/api/league', {method: 'POST', body: JSON.stringify({action: 'reward', leagueId: league.id})});
+    const result = await api('/api/league', {method: 'POST', body: JSON.stringify({action: 'reward', leagueId: league.id})});
     claimed++;
+    if (result?.reward) S.reward = result.reward;
+    if (result?.reward?.available !== true) break;
    } catch (error) {
     problem = error.message;
     if (feedback?.isConnected) feedback.textContent = error.message;

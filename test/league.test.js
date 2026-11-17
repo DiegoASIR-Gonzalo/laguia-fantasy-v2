@@ -135,10 +135,30 @@ test('reward availability is read for the signed-in team', async () => {
 
 test('daily reward claim posts the signed-in team and the rewarded-ad flag', async () => {
   const route = 'POST ' + competition + '/league/' + league + '/team/daily-reward';
-  const {requests, call} = await fixture({[route]: {ok: true}});
-  assert.deepEqual(await call({action: 'reward', leagueId: league}), [200, {ok: true}]);
-  assert.deepEqual(requests.at(-1), {
+  const {requests, call} = await fixture({
+    [route]: {ok: true},
+    ['GET ' + competition + '/daily-reward']: [{leagueType: 'private', dailyLimit: 2, money: 100000}],
+    ['GET ' + competition + '/league/' + league + '/team/' + own + '/check-daily-reward']: {teamId: own, dailyRewardsRedeemed: 1},
+  });
+  assert.deepEqual(await call({action: 'reward', leagueId: league}), [200, {
+    ok: true, reward: {available: true, remaining: 1, claimed: 1, amount: 100000},
+  }]);
+  assert.deepEqual(requests.find(r => r.key === route), {
     key: route, body: {rewardedAdType: 'dailyreward', rewardedAd: 1, teamId: own},
+  });
+});
+
+test('reward catalogue accepts a flat response and type variants', async () => {
+  const check = competition + '/league/' + league + '/team/' + own + '/check-daily-reward';
+  const catalogue = competition + '/daily-reward';
+  const url = '/api/league?id=' + league;
+  const flat = await fixture({['GET ' + catalogue]: {dailyLimit: 1, money: 200000}, ['GET ' + check]: {dailyRewardsRedeemed: 0}});
+  assert.deepEqual((await flat.call(null, {url}))[1].reward, {
+    available: true, remaining: 1, claimed: 0, amount: 200000,
+  });
+  const typed = await fixture({['GET ' + catalogue]: {type: 'private', dailyLimit: 2, money: 100000}, ['GET ' + check]: {dailyRewardsRedeemed: 0}});
+  assert.deepEqual((await typed.call(null, {url}))[1].reward, {
+    available: true, remaining: 2, claimed: 0, amount: 100000,
   });
 });
 
