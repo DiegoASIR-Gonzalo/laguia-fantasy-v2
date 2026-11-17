@@ -21,7 +21,7 @@ function loadMarket() {
   const code = script.replace(/^boot\(\);$/m, '') +
     '\n({S, historyValues, dailyMarketChanges, squadValuePeriod, squadValuation, newClauseMarket, clauseRows,' +
     ' standingInfo, mergePrivate, clauseOwner, profilePlayerActions, available, assistantPurchaseOptions,' +
-    ' assistantSalePlans, optimize, loadLeaguePreferences, saveLeaguePreference})';
+    ' assistantSalePlans, optimize, loadLeaguePreferences, saveLeaguePreference, rewardBalanceChange})';
   const storage = new Map([['lg-v2-watch', '["legacy"]']]);
   return runInNewContext(code, {
     Date: FixedDate,
@@ -195,4 +195,20 @@ test('watchlists and dismissed alerts are restored per account and league', () =
   S.auth.userId = 'account-2';
   loadLeaguePreferences();
   assert.equal(S.watch.length, 0);
+});
+
+
+test('a reward balance update needs a claim confirmed for the same team and day', () => {
+  const {rewardBalanceChange} = loadMarket();
+  const day = '2026-11-16';
+  const before = {teamId: 'T1', day, claimed: 0, balance: 3200000};
+  assert.equal(rewardBalanceChange(before, {available:true,claimed:0}, 3300000, 'T1', day), null);
+  assert.equal(rewardBalanceChange(before, {available:true,claimed:1}, 3300000, 'T2', day), null);
+  assert.equal(rewardBalanceChange(before, {available:false}, 3300000, 'T1', '2026-11-17'), null);
+  assert.equal(rewardBalanceChange(before, {available:false}, null, 'T1', day), null);
+  for (const reward of [{available:true,claimed:1},{available:false,claimed:null}]) {
+    const delta = rewardBalanceChange(before, reward, 3300000, 'T1', day);
+    assert.equal(delta.before, 3200000);
+    assert.equal(delta.after, 3300000);
+  }
 });

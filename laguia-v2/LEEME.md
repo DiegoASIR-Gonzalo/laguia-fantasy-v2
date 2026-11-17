@@ -26,7 +26,7 @@ Cambiar `SESSION_SECRET` invalida las sesiones existentes. Cerrar sesión borra 
 
 ## Funciones incluidas
 
-- **Resumen** muestra las recompensas diarias de la liga y da acceso a la app oficial para reclamarlas tras el anuncio. Al volver puedes actualizar el estado y el saldo.
+- **Resumen** avisa al entrar en una liga con recompensa disponible. Después de reclamarla en la app oficial, puedes comprobar el cobro y ver el saldo anterior y el saldo actualizado.
 - **Mi plantilla** permite cambiar entre forma, valor, jornadas, próximo rival, nacionalidad, pie dominante, goles, tarjetas, minutos, balón parado, jerarquía y situación de mercado. El escudo identifica el blindaje activo y el botón de blindar lleva al flujo de anuncios de LALIGA Fantasy.
 - **Mercado de mi liga** permite pujar por los jugadores libres y hacer ofertas por los de otros equipos. Las operaciones pasan por una confirmación de importe.
 - **Rivales** abre el perfil del mánager en un cuadro central con clasificación, puntos, valor y plantilla. Las cláusulas muestran su precio y protección. Antes de pagar una cláusula, el servidor comprueba el propietario, el importe y el saldo.
