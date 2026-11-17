@@ -1320,6 +1320,7 @@ async function claimDailyReward(button) {
     'Recogiendo recompensa ' + (i + 1) + ' de ' + cap + '…';
    try {
     const result = await api('/api/league', {method: 'POST', body: JSON.stringify({action: 'reward', leagueId: league.id})});
+    if (!sameLeague(league) || rewardRevision !== rewardStatusRevision) return;
     claimed++;
     if (result?.reward) S.reward = result.reward;
     if (result?.reward?.available !== true) break;
@@ -1336,18 +1337,20 @@ async function claimDailyReward(button) {
   ]);
   if (!sameLeague(league) || rewardRevision !== rewardStatusRevision) return;
   if (status.status === 'fulfilled' && status.value.teamId === teamId) S.reward = status.value.reward ?? S.reward;
-  const balance = money.status === 'fulfilled'
+  const freshBalance = money.status === 'fulfilled'
    ? numberOrNull(field(money.value, ['teamMoney', 'money', 'balance', 'availableMoney'])) : null;
-  if (balance !== null) {
-   if (S.budget === (S.balance ?? 0)) S.budget = balance;
-   S.balance = balance;
+  if (freshBalance !== null) {
+   if (S.budget === (S.balance ?? 0)) S.budget = freshBalance;
+   S.balance = freshBalance;
   }
   if (claimed && $('[data-reward-dialog]')) closeOverlay();
   render();
-  if (recordRewardBalance()) return;
+  // Solo se confirma el saldo si se ha consultado después del cobro.
+  if (freshBalance !== null && recordRewardBalance()) return;
   if (claimed) {
-   const done = 'Recompensa' + (claimed > 1 ? 's' : '') + ' recogida' + (claimed > 1 ? 's' : '') +
-    (S.balance !== null ? '. Saldo actual: ' + fmtFull(S.balance) : '') + '.';
+   const done = 'Recompensa' + (claimed > 1 ? 's' : '') + ' recogida' + (claimed > 1 ? 's' : '') + '.' +
+    (freshBalance !== null ? ' Saldo actual: ' + fmtFull(freshBalance) + '.' :
+     ' No se ha podido confirmar el saldo; actualízalo para verlo.');
    const extra = problem && !/ya has reclamado/i.test(problem) ? ' ' + problem : '';
    toast(done + extra);
   } else {

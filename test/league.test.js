@@ -162,6 +162,31 @@ test('reward catalogue accepts a flat response and type variants', async () => {
   });
 });
 
+test('reward catalogue never mixes plans from another league type', async () => {
+  const check = competition + '/league/' + league + '/team/' + own + '/check-daily-reward';
+  const catalogue = competition + '/daily-reward';
+  const url = '/api/league?id=' + league;
+  const mixed = await fixture({
+    ['GET ' + catalogue]: [
+      {leagueType: 'premium', dailyLimit: 1, money: 500000},
+      {leagueType: 'private', dailyLimit: 2, money: 100000},
+    ],
+    ['GET ' + check]: {dailyRewardsRedeemed: 1},
+  });
+  assert.deepEqual((await mixed.call(null, {url}))[1].reward, {
+    available: true, remaining: 1, claimed: 1, amount: 100000,
+  });
+
+  // Sin plan del tipo correcto no se usa otro: se desconoce el importe y no se da el día por agotado.
+  const foreign = await fixture({
+    ['GET ' + catalogue]: [{leagueType: 'premium', dailyLimit: 1, money: 500000}],
+    ['GET ' + check]: {dailyRewardsRedeemed: 1},
+  });
+  assert.deepEqual((await foreign.call(null, {url}))[1].reward, {
+    available: true, remaining: null, claimed: 1, amount: null,
+  });
+});
+
 test('daily reward claim stops when LALIGA says it is already collected', async () => {
   const route = 'POST ' + competition + '/league/' + league + '/team/daily-reward';
   const limited = await fixture({[route]: Response.json({errorCode: '050.01.04'}, {status: 400})});

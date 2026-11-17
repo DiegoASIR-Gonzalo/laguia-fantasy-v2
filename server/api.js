@@ -62,13 +62,21 @@ function deepNumber(node, keys, depth = 3) {
 }
 
 function rewardPlan(data, type) {
-  const items = list(data);
+  let items = list(data);
+  if (!items.length && data && typeof data === 'object') {
+    const array = Object.values(data).find(value => Array.isArray(value) && value.some(item => item && typeof item === 'object'));
+    if (array) items = array;
+  }
   const pool = items.length ? items : data && typeof data === 'object' ? [data] : [];
   const wanted = String(type || '').toLowerCase();
   const typeOf = item => String(item?.leagueType ?? item?.type ?? item?.league?.type ?? item?.discr ?? '').toLowerCase();
   const limitOf = item => deepNumber(item, ['dailyLimit', 'daily_limit', 'limit']);
-  const chosen = pool.find(item => limitOf(item) !== null && (!wanted || !typeOf(item) || typeOf(item) === wanted)) ??
-    pool.find(item => limitOf(item) !== null) ?? (pool.length === 1 ? pool[0] : null);
+  const typed = pool.filter(item => typeOf(item));
+  const matching = wanted ? pool.filter(item => typeOf(item) === wanted) : [];
+  // Si el catálogo distingue tipos, solo vale el plan de este tipo: nunca el de otra liga.
+  let chosen = null;
+  if (matching.length) chosen = matching.find(item => limitOf(item) !== null) ?? null;
+  else if (!typed.length) chosen = pool.find(item => limitOf(item) !== null) ?? (pool.length === 1 ? pool[0] : null);
   return chosen
     ? {limit: limitOf(chosen), money: deepNumber(chosen, ['money', 'amount', 'dailyMoney', 'rewardMoney'])}
     : {limit: null, money: null};
