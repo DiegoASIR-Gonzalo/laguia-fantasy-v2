@@ -292,6 +292,9 @@
 .reward-current span,.reward-balance-toast small{color:#b5bdcb}
 .reward-current strong{font-size:23px;font-variant-numeric:tabular-nums}
 .reward-dialog .btn{margin-top:6px}
+.reward-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 10px}
+.reward-actions .reward-app-launch{display:none}
+@media (hover:none) and (pointer:coarse){.reward-actions .reward-app-launch{display:inline-flex;text-decoration:none}}
 .reward-feedback:empty{display:none}
 .reward-balance-toast{align-items:flex-start;gap:12px}
 .reward-balance-toast small{display:block;margin-top:3px}
@@ -462,6 +465,7 @@ function seedDemo() {
   S.savedLineup || optimize(S.roster,S.formation,S.risk,S.locked);
 }
 
+const officialAppLaunch = 'fantasy://splashactivity';
 const officialApp = 'https://fantasylaliga.onelink.me/k6nG?af_dp=fantasy%3A%2F%2Fsplashactivity&pid=web-fantasy&af_force_deeplink=true';
 const numberOrNull = value => (typeof value !== 'string' && typeof value !== 'number') || value === ''
  ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -1182,8 +1186,12 @@ function openDailyReward() {
   <h2>${title}</h2>
   <p>${e(rewardDescription(S.reward))}</p>
   <div class="reward-current"><span>Saldo actual</span><strong data-reward-current>${fmtFull(S.balance)}</strong></div>
-  <p class="hint">LaLiga abona la recompensa tras ver el anuncio en su app. Cuando la hayas reclamado, comprueba aquí tu saldo.</p>
-  <button class="btn primary" data-action="verify-reward">${icon('refresh')} Comprobar cobro</button>
+  <p class="hint">${S.reward?.available===false?'Consulta el saldo que devuelve LaLiga.':'En la app de LaLiga, entra en tu liga y reclama la recompensa tras ver el anuncio. Al volver, el saldo se comprueba automáticamente.'}</p>
+  <div class="reward-actions">
+   ${S.reward?.available!==false?`<a class="btn primary reward-app-launch" href="${e(officialAppLaunch)}">
+    ${icon('external')} Abrir app de LaLiga</a>`:''}
+   <button class="btn" data-action="verify-reward">${icon('refresh')} Comprobar saldo</button>
+  </div>
   <p class="hint reward-feedback" data-reward-feedback aria-live="polite"></p>
  </section>`,true,title);
 }
@@ -1265,7 +1273,7 @@ async function verifyDailyReward(button) {
   if (recordRewardBalance()) return;
   const displayed=$('[data-reward-current]');
   if (displayed) displayed.textContent=fmtFull(balance);
-  message(S.reward.available ? 'LaLiga aún muestra una recompensa disponible.' : 'LaLiga indica que ya has reclamado la recompensa.');
+  message(S.reward.available ? 'LaLiga aún muestra una recompensa disponible. Reclámala desde su app.' : 'LaLiga indica que ya has reclamado la recompensa.');
  } catch(error) {
   if(sameLeague(league)) message(error.message);
  } finally {
