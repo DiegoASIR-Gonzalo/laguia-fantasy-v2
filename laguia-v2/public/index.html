@@ -217,6 +217,7 @@
 .clause-price{display:inline-grid;gap:2px;color:var(--tone,var(--text));font-variant-numeric:tabular-nums}
 .clause-price small{font-size:12px;line-height:1.35}
 .profile-stat .clause-price small{font-weight:500}
+.squad-cell-note{display:block;margin-top:3px;color:var(--tone,var(--chart-neutral));font-size:12px;line-height:1.35}
 .market-nav{flex-wrap:wrap;gap:8px 20px;overflow:visible}
 .market-nav button{min-height:36px}
 .clause-market-head{gap:10px;flex-wrap:wrap}
@@ -913,8 +914,8 @@ function clauseRows({smart = false} = {}) {
   .sort((a,b)=>sort[order](a,b) || orderByName(a,b));
 }
 
-function clauseRemaining(until) {
- const minutes = Math.ceil((until-Date.now())/60000);
+function clauseRemaining(until, now = Date.now()) {
+ const minutes = Math.ceil((until-now)/60000);
  if (minutes<=0) return 'Comprobando desbloqueo';
  const days = Math.floor(minutes/1440);
  const hours = Math.floor(minutes%1440/60);
@@ -937,6 +938,16 @@ function tickClauseMarket() {
  state.nextUnlock = Infinity;
  state.updatedAt = 0;
  if (S.screen==='app' && ((S.tab==='market' && isClauseTab()) || assistantUsesClauses())) void loadClauseMarket();
+}
+
+function tickSquadClauses() {
+ const now = Date.now();
+ for (const label of $$('[data-squad-clause]')) {
+  const p = rosterPlayer(label.dataset.squadClause,S.teamId);
+  if (!p) continue;
+  const status = squadClauseProtection(p,now);
+  if (label.innerHTML !== status) label.innerHTML = status;
+ }
 }
 
 function clauseOwner(p) {
@@ -1630,7 +1641,15 @@ const percentFor = (p, ff) => {
 };
 const probabilityLabel = (p, ff) => percentFor(p, ff) === null ? '—' : fmtPercent(percentFor(p, ff));
 const matchVenue = (p, ff) => (ff?.home ?? p.home) === true ? 'Local' : (ff?.home ?? p.home) === false ? 'Visitante' : '—';
-const fixtureDifficulty = ff => ff?.difficulty ? ff.difficulty.replaceAll('-', ' ').replace(/^./, char => char.toUpperCase()) : null;
+const fixtureDifficulties = new Map([
+ ['m-asequible',['Muy asequible','tone-gain']],
+ ['asequible',['Asequible','tone-gain']],
+ ['igualado',['Igualado','tone-watch']],
+ ['dificil',['Difícil','tone-loss']],
+ ['m-dificil',['Muy difícil','tone-loss']],
+]);
+const fixtureDifficulty = ff => ff?.difficulty ?
+ (fixtureDifficulties.get(ff.difficulty)?.[0] ?? ff.difficulty.replaceAll('-', ' ').replace(/^./, char => char.toUpperCase())) : null;
 const relativeForm = p => {
  if (!p.form.length) return null;
  if (p.recent > p.average + 0.5) return 'Al alza';
@@ -1677,6 +1696,32 @@ function squadRival(p,ff) {
  return ff?.rival ?? p.rival;
 }
 
+function squadFixtureCell(p, ff) {
+ const rival = squadRival(p,ff);
+ if (!rival) return '—';
+ const tone = fixtureDifficulties.get(ff?.difficulty)?.[1] ?? 'tone-flat';
+ const label = fixtureDifficulty(ff) ?? 'Sin dato';
+ return `${e(rival)}<small class="squad-cell-note ${tone}" title="Dificultad según FútbolFantasy">${e(label)}</small>`;
+}
+
+function squadClauseProtection(p, now = Date.now()) {
+ const protection = clauseProtection(p,now);
+ if (!protection.locked) return '<small class="squad-cell-note tone-loss" title="Sin bloqueo ni blindaje individual">Sin protección</small>';
+ if (!protection.until) {
+  const label = dated(p.shieldedUntil) ? 'Blindaje por confirmar' : 'Blindado · sin fecha';
+  return `<small class="squad-cell-note tone-gain">${label}</small>`;
+ }
+ const date = new Date(protection.until);
+ const type = protection.shieldExpiresLast ? 'Blindaje' : 'Bloqueo';
+ return `<time class="squad-cell-note tone-gain" datetime="${date.toISOString()}" title="${e(type + ' hasta ' + dateText(date))}">
+  ${type} · ${clauseRemaining(protection.until,now)}</time>`;
+}
+
+function squadClauseCell(p) {
+ if (!(p.clause > 0)) return '—';
+ return `${clausePriceHtml(p)}<span data-squad-clause="${e(p.id)}">${squadClauseProtection(p)}</span>`;
+}
+
 function squadDailyChange(p,ff,compact=false) {
  const value=ff?.dailyChange ?? null;
  const label=deltaMoney(value);
@@ -1686,7 +1731,7 @@ function squadDailyChange(p,ff,compact=false) {
 
 const squadEssentials=[
  ['Titularidad',(p,ff)=>probabilityLabel(p,ff)],
- ['Próximo rival',(p,ff)=>statText(squadRival(p,ff))],
+ ['Próximo rival',squadFixtureCell],
  ['Variación diaria',squadDailyChange],
 ];
 
@@ -1699,7 +1744,7 @@ function squadCompleteColumns() {
    fmtFull(completePlayerValues(p,period).price ?? (squadValueState().mode==='daily' ? p.value || null : null))],
   ['Puntos',p=>fmtInteger(p.points)],
   ['Últimas 5',p=>formHtml(p)],
-  ['Cláusula',p=>clausePriceHtml(p)],
+  ['Cláusula',squadClauseCell],
  ];
 }
 
@@ -1721,9 +1766,8 @@ const squadMetrics = {
   ['Media últimas 5', p => p.form.length ? num(p.recent) : '—'], ['Últimas 5', p => formHtml(p)],
  ]],
  fixture: ['Próximo rival y dificultad', [
-  ['Rival', (p, ff) => statText(ff?.rival ?? p.rival)],
+  ['Próximo rival', squadFixtureCell],
   ['Local / visitante', matchVenue],
-  ['Dificultad', (p, ff) => statText(fixtureDifficulty(ff))],
   ['Jornada', (p, ff) => ff?.week || p.probWeek ? 'J' + (ff?.week || p.probWeek) : '—'],
  ]],
  country: ['Nacionalidad y edad', [
@@ -3526,7 +3570,7 @@ document.addEventListener('input',event=>{
  },130);
 });
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if($('#overlay-root').innerHTML)closeOverlay();else $('#sidebar')?.classList.remove('mobile-open')}if(event.key==='Tab'&&$('#overlay-root').innerHTML){const list=$$('button,a[href],input,textarea,select,[tabindex="0"]',$('[role=dialog]')).filter(el=>!el.disabled);if(list.length){const first=list[0],last=list.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}});
-setInterval(()=>{updateCountdown();tickClauseMarket()},30000);
+setInterval(()=>{updateCountdown();tickClauseMarket();tickSquadClauses()},30000);
 document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&S.auth.authenticated&&!S.demo){try{S.auth=await api('/api/auth');if(!S.auth.authenticated){S.screen='auth';render();toast('LALIGA necesita que conectes de nuevo tu cuenta.',true)}else if(officialSync&&sameLeague(officialSync)){officialSync=null;closeOverlay();await loadPrivateLeague()}else if(S.rewardBalance&&sameLeague(S.league)){await verifyDailyReward()}}catch{}}});
 boot();
 </script>
