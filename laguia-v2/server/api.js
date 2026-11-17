@@ -41,6 +41,13 @@ const positiveAmount = value => Number.isSafeInteger(value) && value > 0;
 const validId = value => typeof value === 'string' && safeId(value);
 const masterOf = row => row.playerMaster ?? row.playerTeam?.playerMaster ?? row.player?.playerMaster ?? row.player ?? {};
 const standingTeamId = row => String(row.teamId ?? row.team?.id ?? row.id ?? '');
+const playerSlot = row => row.playerTeam ?? row;
+
+function rosterEntry(roster, playerId, slotId) {
+  return list(roster).find(row =>
+    String(playerSlot(row).playerTeamId ?? playerSlot(row).id ?? '') === slotId &&
+    String(masterOf(row).id ?? row.playerId ?? '') === playerId);
+}
 
 async function upstreamJson(response) {
   return response.json().catch(() => null);
@@ -207,10 +214,7 @@ async function clauseAction(input, member, session, fetcher) {
   if (!list(standings).some(row => standingTeamId(row) === sellerId)) {
     throw fail(409, 'El equipo del jugador ya no figura en esta liga.');
   }
-  const player = list(roster).find(row => {
-    const slot = row.playerTeam ?? row;
-    return String(slot.playerTeamId ?? slot.id ?? '') === slotId && String(masterOf(row).id ?? row.playerId ?? '') === playerId;
-  });
+  const player = rosterEntry(roster, playerId, slotId);
   const slot = player?.playerTeam ?? player;
   const currentPrice = numeric(slot?.buyoutClause ?? slot?.releaseClause ?? slot?.clauseValue);
   if (!positiveAmount(currentPrice) || currentPrice !== amount) {
@@ -237,10 +241,53 @@ const writeErrors = {
   '030.01.99': 'Ya tienes una oferta pendiente por este jugador.',
 };
 
+async function ownPlayerAction(input, member, session, fetcher) {
+  const {id, teamId, league} = member;
+  const {action, playerId, slotId, amount, previousClause} = input;
+  if (!validId(slotId)) throw fail(400, 'No se ha identificado al jugador de tu plantilla.');
+  const leaguePath = competition + '/league/' + id;
+  const selling = action === 'list-player';
+  const contextPath = selling ? leaguePath + '/market' : competition + '/teams/' + teamId + '/money';
+  const [roster, context] = await Promise.all([
+    gameRead(competition + '/leagues/' + id + '/teams/' + teamId, session, fetcher),
+    gameRead(contextPath, session, fetcher),
+  ]);
+  const player = rosterEntry(roster, playerId, slotId);
+  if (!player) throw fail(409, 'El jugador ya no está en tu plantilla. Actualiza la liga.');
+  const slot = playerSlot(player);
+  if (selling) {
+    const minimum = numeric(masterOf(player).marketValue ?? player.marketValue);
+    if (!positiveAmount(minimum)) throw fail(502, 'No se ha podido comprobar el valor de mercado.');
+    if (amount < minimum) throw fail(409, 'El precio de salida es inferior al valor de mercado actual.');
+    const isActive = row => !(Date.parse(row.expirationDate) <= Date.now());
+    const rosterListing = slot.playerMarket ?? player.playerMarket;
+    const alreadyListed = (rosterListing?.id && isActive(rosterListing)) || list(context).some(row =>
+      String(row.sellerTeam?.id ?? row.sellerTeamId ?? '') === teamId &&
+      String(masterOf(row).id ?? row.playerId ?? '') === playerId && isActive(row));
+    if (alreadyListed) throw fail(409, 'El jugador ya está anunciado en tu mercado.');
+    return {path: leaguePath + '/market/sell', method: 'POST', body: {playerId: slotId, salePrice: amount}};
+  }
+
+  const currentClause = numeric(slot.buyoutClause ?? slot.releaseClause ?? slot.clauseValue);
+  if (league.config?.features?.buyoutClause === false || !positiveAmount(currentClause)) {
+    throw fail(409, 'El jugador no tiene una cláusula que puedas subir.');
+  }
+  if (currentClause !== previousClause) throw fail(409, 'La cláusula ha cambiado. Actualiza tu plantilla antes de continuar.');
+  const balance = numeric(context.teamMoney ?? context.money ?? context.balance ?? context.availableMoney);
+  if (balance === null) throw fail(502, 'No se ha podido comprobar el saldo de tu equipo.');
+  if (amount > balance) throw fail(409, 'Tu saldo actual no cubre el aumento de cláusula.');
+  if (!Number.isSafeInteger(currentClause + amount * 2)) throw fail(400, 'El importe es demasiado alto.');
+  return {
+    path: leaguePath + '/buyout/player',
+    method: 'PUT',
+    body: {playerId: slotId, factor: 2, valueToIncrease: amount * 2},
+  };
+}
+
 async function submitLeagueAction(input, session, fetcher) {
   const {action, leagueId, playerId, amount} = input ?? {};
   const reward = action === 'reward';
-  if (!['bid', 'offer', 'clause', 'reward'].includes(action) || !validId(leagueId) ||
+  if (!['bid', 'offer', 'clause', 'reward', 'list-player', 'raise-clause'].includes(action) || !validId(leagueId) ||
       (!reward && (!validId(playerId) || !positiveAmount(amount)))) {
     throw fail(400, 'Operación, jugador o importe no válido.');
   }
@@ -252,9 +299,11 @@ async function submitLeagueAction(input, session, fetcher) {
     if (reward) {
       return claimDailyReward(member, session, fetcher);
     }
-    const {path, method, body} = action === 'clause'
-      ? await clauseAction(input, member, session, fetcher)
-      : await marketAction(input, member, session, fetcher);
+    let operation;
+    if (action === 'clause') operation = await clauseAction(input, member, session, fetcher);
+    else if (action === 'list-player' || action === 'raise-clause') operation = await ownPlayerAction(input, member, session, fetcher);
+    else operation = await marketAction(input, member, session, fetcher);
+    const {path, method, body} = operation;
     const response = await official(path, session, fetcher, {method, body})
       .catch(() => { throw fail(502, 'No se pudo confirmar la operación. Actualiza tu liga para comprobar el resultado.'); });
     if (response.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');

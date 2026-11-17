@@ -41,6 +41,7 @@
 .squad-stats .player-cell>span:last-child{min-width:0;display:grid;gap:1px}
 .squad-stats .player-cell strong{overflow:hidden;text-overflow:ellipsis}
 .squad-stats .player-cell .shield-tag{justify-self:start;margin:2px 0 0}
+.squad-player-actions{width:110px;font-size:13px;padding:6px 10px}
 .row-actions,.listing-actions{display:flex;gap:7px;align-items:center;justify-content:flex-start}
 .row-actions .icon-btn{height:33px;width:33px}
 .shield-tag{display:inline-flex;align-items:center;gap:4px;color:#8bf1c3;background:#5adea512;border-radius:5px;padding:2px 5px;font:600 12px/1.3 Inter,sans-serif;white-space:nowrap}
@@ -174,8 +175,7 @@
 .lineup-option .btn{margin-top:8px}
 .pitch-data>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .squad-bench .squad-stats td,.squad-bench .squad-stats th{padding-left:10px;padding-right:10px}
-.squad-bench td [data-lineup-pick]{margin-top:5px}
-[data-lineup-pick][aria-pressed="true"]{border-color:#8bf1c3;color:#8bf1c3}
+.squad-player-actions[data-placing]{border-color:#8bf1c3;color:#8bf1c3}
 @media(max-width:1050px){.chart-labels span:nth-child(even):not(:last-child){display:none}}
 @media(max-width:760px){
  .squad-stats .player-cell{width:145px}
@@ -1446,6 +1446,32 @@ function rosterPlayer(id, teamId) {
 
 let tradeDraft = null;
 const tradeInFlight = new Set();
+const ownTrade = action => action === 'list-player' || action === 'raise-clause';
+const premiumSaleTarget = value => Math.ceil(value + value / 20);
+
+function listedByMe(player) {
+ const rosterListing = player.raw?.playerTeam?.playerMarket ?? player.raw?.playerMarket;
+ if (player.onMarket || (rosterListing?.id && (!dated(rosterListing.expirationDate) || future(rosterListing.expirationDate)))) return true;
+ return S.market.some(listing =>
+  listing.id === player.id && ownPlayer(listing) && (!dated(listing.expires) || future(listing.expires)));
+}
+
+function openOwnTrade(player, action, smart = false) {
+ const league = S.league;
+ if (!S.demo && (!canTrade() || !player.privateId || !ownPlayer(player))) return;
+ if (tradeInFlight.has(league.id)) return toast('Hay una operación en curso en esta liga.',true);
+ const selling = action === 'list-player';
+ if (selling && (listedByMe(player) || !(player.value > 0))) return;
+ if (!selling && (!(player.clause > 0) || league.config?.features?.buyoutClause === false)) return;
+ const minimum = selling ? Math.ceil(player.value) : 1;
+ const canRaise = S.balance === null || S.balance >= minimum;
+ if (!selling && !canRaise) return toast('Necesitas saldo positivo para subir una cláusula.',true);
+ const start = selling ? (smart ? premiumSaleTarget(player.value) : minimum) :
+  Math.min(Math.floor(S.balance ?? Infinity), Math.max(1,Math.ceil(player.clause * .05)));
+ const title = selling ? (smart ? 'Venta inteligente' : 'Añadir al mercado') : 'Subir cláusula';
+ tradeDraft = {league, player, action, title, minimum, start, smart};
+ tradeForm(tradeDraft);
+}
 
 function openTrade({listingId, slotId, sellerId}) {
  if (!canTrade()) return;
@@ -1477,22 +1503,61 @@ function tradeTotals(items) {
 
 function tradeForm(draft) {
  const {league, player, title, minimum, start} = draft;
- const dialog = overlay(`<div class="modal-top"><h2>${e(title)} por ${e(player.name)}</h2>
+ const selling = draft.action === 'list-player';
+ const raising = draft.action === 'raise-clause';
+ const label = selling ? 'Precio de salida en euros' : raising ? 'Importe a invertir en euros' : 'Importe en euros';
+ const description = selling
+  ? 'LaLiga renueva su oferta en cada ciclo y calcula el importe sobre el valor de mercado.'
+  : raising ? 'Por cada euro invertido, la cláusula sube dos euros.'
+  : draft.action === 'bid' ? 'La puja se resuelve cuando termina el anuncio.' : 'El mánager del jugador decide si acepta la oferta.';
+ const facts = selling ? [['Valor de mercado',fmtFull(player.value)],
+  ...(draft.smart ? [
+   ['Rango orientativo de LaLiga',fmtFull(Math.round(player.value * .90)) + ' a ' + fmtFull(Math.round(player.value * 1.10))],
+   ['Objetivo para aceptar (+5 %)',fmtFull(premiumSaleTarget(player.value))],
+  ] : [])] : [
+  [raising ? 'Cláusula actual' : 'Precio de salida',fmtFull(raising ? player.clause : player.price)],
+  ['Saldo actual',fmtFull(S.balance)],
+ ];
+ const review = selling ? 'Revisar anuncio' : raising ? 'Revisar aumento' : draft.action === 'bid' ? 'Revisar puja' : 'Revisar oferta';
+ const dialog = overlay(`<div class="modal-top"><h2>${e(title)}${ownTrade(draft.action) ? ' · ' : ' por '}${e(player.name)}</h2>
   <button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div>
-  <p class="hint">${e(league.name)} · ${draft.action === 'bid' ? 'La puja se resuelve cuando termina el anuncio.' : 'El mánager del jugador decide si acepta la oferta.'}</p>
-  ${tradeTotals([['Precio de salida',fmtFull(player.price)],['Saldo actual',fmtFull(S.balance)]])}
+  <p class="hint">${e(league.name)} · ${description}</p>
+  ${tradeTotals(facts)}
+  ${draft.smart ? '<p class="hint">Si la oferta queda por debajo del objetivo, compara la siguiente si tienes margen de tiempo. El valor de mercado puede cambiar.</p>' : ''}
   <form id="real-trade-form">
-   <label class="trade-input" for="trade-amount">Importe en euros
-    <input id="trade-amount" type="number" min="${minimum}" step="1" value="${Math.max(minimum,start)}" required>
+   <label class="trade-input" for="trade-amount">${label}
+    <input id="trade-amount" type="number" min="${minimum}" ${raising && S.balance!==null ? 'max="'+S.balance+'"' : ''}
+     step="1" value="${Math.max(minimum,start)}" required>
    </label>
    <div class="trade-actions"><button class="btn" type="button" data-action="close-overlay">Cancelar</button>
-    <button class="btn primary" type="submit">Revisar ${draft.action === 'bid' ? 'puja' : 'oferta'}</button></div>
+    <button class="btn primary" type="submit">${review}</button></div>
   </form>`,true,title + ' por ' + player.name);
  dialog.querySelector('#trade-amount')?.focus();
 }
 
+function confirmOwnTrade({player, action, league, amount}) {
+ const selling = action === 'list-player';
+ const title = selling ? 'Publicar en el mercado' : 'Confirmar subida de cláusula';
+ const facts = selling ? [['Precio de salida',fmtFull(amount)]] : [
+  ['Coste del aumento',fmtFull(amount)], ['Nueva cláusula',fmtFull(player.clause + amount * 2)],
+  ['Saldo después',fmtFull(S.balance === null ? null : S.balance - amount)],
+ ];
+ overlay(`<div class="modal-top"><h2>${title}</h2>
+  <button class="icon-btn" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button></div>
+  <p><strong>${e(player.name)}</strong> · ${e(league.name)}</p>
+  ${tradeTotals(facts)}
+  <p class="hint">${S.demo ? 'Vista previa de la operación en la liga de demostración.' :
+   selling ? 'Podrás revisar las ofertas recibidas antes de vender al jugador.' : 'El coste se descontará de tu saldo al confirmar.'}</p>
+  <div id="trade-error" role="alert"></div>
+  <div class="trade-actions">
+   <button class="btn" data-action="edit-trade">Editar importe</button>
+   <button class="btn primary" data-action="${S.demo ? 'close-overlay' : 'confirm-trade'}">${S.demo ? 'Cerrar' : title}</button>
+  </div>`,true,title);
+}
+
 function tradeConfirm(draft) {
  const {player, action, league, amount} = draft;
+ if (ownTrade(action)) return confirmOwnTrade(draft);
  const clause = action === 'clause';
  const owner = player.ownerManager ?? player.ownerName;
  const operation = clause ? 'clausulazo' : action === 'bid' ? (player.bidId ? 'cambio de puja' : 'puja') : 'oferta';
@@ -1520,6 +1585,8 @@ async function submitTrade(button) {
  const {league, player, action, amount} = draft;
  const body = {leagueId: league.id, playerId: player.id, action, amount};
  if (action === 'clause') Object.assign(body,{sellerId: player.ownerTeamId, slotId: player.privateId});
+ else if (ownTrade(action)) Object.assign(body,{slotId: player.privateId,
+  ...(action === 'raise-clause' ? {previousClause: player.clause} : {})});
  else Object.assign(body,{listingId: player.listing, ...(player.bidId ? {previousBidId: player.bidId} : {})});
 
  tradeInFlight.add(league.id);
@@ -1529,11 +1596,16 @@ async function submitTrade(button) {
   await api('/api/league',{method:'POST',body:JSON.stringify(body)});
   if (!sameLeague(league)) return;
   if (action === 'clause') S.rivalRosters.delete(player.ownerTeamId);
-  else S.recentTrades.set(player.listing,{amount,until:Date.now()+30000});
+  else if (!ownTrade(action)) S.recentTrades.set(player.listing,{amount,until:Date.now()+30000});
   if (tradeDraft === draft) closeOverlay();
   await loadPrivateLeague();
-  if (sameLeague(league)) toast(action === 'clause' ? 'Cláusula pagada. Fichaje realizado.'
-   : action === 'bid' ? 'LALIGA ha confirmado tu puja.' : 'LALIGA ha confirmado tu oferta.');
+  if (sameLeague(league)) toast({
+   clause: 'Cláusula pagada. Fichaje realizado.',
+   bid: 'LALIGA ha confirmado tu puja.',
+   offer: 'LALIGA ha confirmado tu oferta.',
+   'list-player': 'LaLiga ha añadido al jugador al mercado.',
+   'raise-clause': 'LaLiga ha confirmado la nueva cláusula.',
+  }[action]);
  } catch (error) {
   if (tradeDraft === draft && button.isConnected && sameLeague(league)) {
    const failure = $('#trade-error');
@@ -1953,29 +2025,39 @@ function squadPlayers() {
  return S.roster.slice().sort((a,b) => a.position - b.position || (b.expected ?? 0) - (a.expected ?? 0));
 }
 
-function squadTable(players, actions = true) {
+function squadPlayerActions(p, canPlace) {
+ const own = S.demo || (canTrade() && ownPlayer(p) && p.privateId);
+ const clause = own && p.clause > 0 && S.league?.config?.features?.buyoutClause !== false;
+ const listed = listedByMe(p);
+ const listable = own && p.value > 0 && !listed;
+ const shielded = isShielded(p);
+ const shield = !S.demo && clause && !shielded && !future(p.clauseLockedUntil);
+ const placing = S.lineupPick === p.id;
+ return `<select class="squad-player-actions" data-squad-player="${e(p.id)}" ${placing ? 'data-placing' : ''} aria-label="Acciones de ${e(p.name)}">
+  <option value="">Acciones</option>
+  <option value="raise-clause" ${clause ? '' : 'disabled'}>Subir cláusula</option>
+  <option value="list-player" ${listable ? '' : 'disabled'}>${listed ? 'Ya está en el mercado' : 'Añadir al mercado'}</option>
+  <option value="smart-sale" ${listable ? '' : 'disabled'}>Añadir al mercado · Inteligente</option>
+  <option value="shield" ${shield ? '' : 'disabled'}>${shielded ? 'Blindado' : 'Blindar'}</option>
+  <option value="place" ${canPlace && !S.lineupSaving ? '' : 'disabled'}>${placing ? 'Cancelar colocación' : 'Colocar'}</option>
+  <option value="lock">${S.locked.includes(p.id) ? 'Desfijar del once' : 'Fijar en el once'}</option>
+ </select>`;
+}
+
+function squadTable(players, full = true) {
  const selected = squadMetricColumns();
- const columns = actions || S.squadMetric==='complete' ? selected : [
+ const columns = full || S.squadMetric==='complete' ? selected : [
   ...squadEssentials,...selected.filter(([label])=>!squadEssentials.some(([key])=>key===label)),
  ];
  const canPlace=!!bestLineup();
  return `<div class="table-scroll full-table squad-stats-scroll" tabindex="0" aria-label="Estadísticas de la plantilla">
   <table class="squad-stats">
-   <thead><tr><th scope="col">Jugador</th>${columns.map(([label]) => `<th scope="col">${e(label)}</th>`).join('')}
-    ${actions?'<th scope="col">Acciones</th>':''}</tr></thead>
+   <thead><tr><th scope="col">Jugador</th><th scope="col">Acciones</th>${columns.map(([label]) =>
+    `<th scope="col">${e(label)}</th>`).join('')}</tr></thead>
    <tbody>${players.map(p => {
     const ff = ffFor(p);
-    const locked = S.locked.includes(p.id);
-    const place=canPlace?`<button class="btn small" data-lineup-pick="${e(p.id)}" aria-label="Colocar a ${e(p.name)}"
-      aria-pressed="${S.lineupPick===p.id}">Colocar</button>`:'';
-    return `<tr><td>${playerCell(p,true)}${actions?'':place}</td>
-      ${columns.map(([, renderCell]) => `<td>${renderCell(p, ff)}</td>`).join('')}
-      ${actions?`<td><div class="row-actions">
-       ${place}<button class="icon-btn ${locked ? 'red' : ''}" data-lock="${e(p.id)}"
-        aria-label="${locked ? 'Desfijar a' : 'Fijar en el once a'} ${e(p.name)}" aria-pressed="${locked}"
-        title="${locked ? 'Desfijar del once' : 'Fijar en el once'}">${icon(locked ? 'lock' : 'shirt')}</button>
-       ${shieldControl(p, true)}
-      </div></td>`:''}</tr>`;
+    return `<tr><td>${playerCell(p,true)}</td><td>${squadPlayerActions(p,canPlace)}</td>
+      ${columns.map(([, renderCell]) => `<td>${renderCell(p, ff)}</td>`).join('')}</tr>`;
    }).join('')}</tbody>
   </table>
  </div>`;
@@ -3123,7 +3205,11 @@ function paintLineupSelection() {
  const picked = S.roster.find(p=>p.id===S.lineupPick);
  for(const slot of $$('[data-lineup-slot]')) slot.classList.toggle('lineup-target',
   !!picked && picked.id!==slot.dataset.lineupSlot && String(picked.position)===slot.dataset.lineupPosition);
- for(const button of $$('[data-lineup-pick]')) button.setAttribute('aria-pressed', String(button.dataset.lineupPick===S.lineupPick));
+ for(const select of $$('[data-squad-player]')) {
+  const placing = select.dataset.squadPlayer===S.lineupPick;
+  select.toggleAttribute('data-placing',placing);
+  select.querySelector('[value="place"]').textContent = placing ? 'Cancelar colocación' : 'Colocar';
+ }
  const note = $('#lineup-edit-note');
  if(note) note.textContent = lineupEditHint();
 }
@@ -3133,6 +3219,31 @@ function pickLineupPlayer(id) {
  S.lineupPick = S.lineupPick===id ? null : id;
  paintLineupSelection();
  if(S.lineupPick) $('.lineup-target','#squad-pitch')?.focus();
+}
+
+function toggleLineupLock(player) {
+ if (S.lineupSaving) return;
+ const id = player.id;
+ const next = S.locked.includes(id) ? S.locked.filter(value=>value!==id) : [...S.locked,id];
+ const lineup = optimize(S.roster,S.formation,S.risk,next);
+ if (!lineup) return toast('Esa combinación no permite un once válido. Desfija otro jugador o cambia la formación.',true);
+ S.locked = next;
+ S.lineup = lineup;
+ S.lineupDirty = true;
+ S.lineupPick = null;
+ render();
+}
+
+function handleSquadAction(select) {
+ const action = select.value;
+ select.value = '';
+ const player = rosterPlayer(select.dataset.squadPlayer,S.teamId);
+ if (!player) return;
+ if (action === 'place') pickLineupPlayer(player.id);
+ else if (action === 'lock') toggleLineupLock(player);
+ else if (action === 'shield') openShield(player);
+ else if (action === 'smart-sale') openOwnTrade(player,'list-player',true);
+ else if (ownTrade(action)) openOwnTrade(player,action);
 }
 
 function moveLineupPlayer(from, to) {
@@ -3296,12 +3407,12 @@ function watchPlayer(id,button){if(S.watch.includes(id))S.watch=S.watch.filter(v
 document.addEventListener('click',async event=>{
  if(event.target.closest('[data-official-sync]')) officialSync = S.league;
  const button=event.target.closest('button,a[data-action]');if(!button){if(event.target.matches('[data-scrim]'))closeOverlay();return}if(button.disabled)return;
- if(button.dataset.tab){closeOverlay();navigate(button.dataset.tab);return}if(button.dataset.league){enterLeague(button.dataset.league);return}if(button.dataset.lineupPick){pickLineupPlayer(button.dataset.lineupPick);return}
+ if(button.dataset.tab){closeOverlay();navigate(button.dataset.tab);return}if(button.dataset.league){enterLeague(button.dataset.league);return}
  if(button.dataset.useFormation){applyLineupRecommendation(button.dataset.useFormation);return}
  if(button.dataset.assistantTask){showAssistantTask(button.dataset.assistantTask);return}
  if(button.dataset.assistantChoice){pickAssistantChoice(button);return}
  if(button.dataset.lineupSlot&&S.lineupPick){moveLineupPlayer(S.lineupPick,button.dataset.lineupSlot);return}
- if(button.dataset.player){openPlayer(button.dataset.player,button.dataset.playerTeam,!!button.closest('[data-clause-report]'));return}if(button.dataset.watch){watchPlayer(button.dataset.watch,button);return}if(button.dataset.lock){const id=button.dataset.lock;const next=S.locked.includes(id)?S.locked.filter(x=>x!==id):[...S.locked,id];const result=optimize(S.roster,S.formation,S.risk,next);if(!result)return toast('Esa combinación no permite un once válido. Desfija otro jugador o cambia la formación.',true);S.locked=next;S.lineup=result;S.lineupDirty=true;S.lineupPick=null;render();return}if(button.dataset.position){S.position=button.dataset.position;S.page=0;render();return}if(button.dataset.marketTab){S.marketTab=button.dataset.marketTab;if(S.marketTab!=='league')S.sort=({priceAsc:'cheap',priceDesc:'value'})[S.sort]||S.sort;S.page=0;S.search='';S.compareA='';S.compareB='';render();return}if(button.dataset.rival){openRival(button.dataset.rival);return}if(button.dataset.match){showMatch(button.dataset.match);return}if(button.dataset.dismiss){S.dismissed.push(button.dataset.dismiss);saveLeaguePreference('dismissed');render();return}if(button.dataset.setting){S.settings[button.dataset.setting]=!S.settings[button.dataset.setting];saveLocal('lg-v2-settings',S.settings);render();return}
+ if(button.dataset.player){openPlayer(button.dataset.player,button.dataset.playerTeam,!!button.closest('[data-clause-report]'));return}if(button.dataset.watch){watchPlayer(button.dataset.watch,button);return}if(button.dataset.position){S.position=button.dataset.position;S.page=0;render();return}if(button.dataset.marketTab){S.marketTab=button.dataset.marketTab;if(S.marketTab!=='league')S.sort=({priceAsc:'cheap',priceDesc:'value'})[S.sort]||S.sort;S.page=0;S.search='';S.compareA='';S.compareB='';render();return}if(button.dataset.rival){openRival(button.dataset.rival);return}if(button.dataset.match){showMatch(button.dataset.match);return}if(button.dataset.dismiss){S.dismissed.push(button.dataset.dismiss);saveLeaguePreference('dismissed');render();return}if(button.dataset.setting){S.settings[button.dataset.setting]=!S.settings[button.dataset.setting];saveLocal('lg-v2-settings',S.settings);render();return}
  if(button.dataset.tradeListing){openTrade({listingId:button.dataset.tradeListing});return}
  if(button.dataset.tradeClause){openTrade({slotId:button.dataset.tradeClause,sellerId:button.dataset.owner});return}
  if(button.dataset.shieldPlayer){const player=rosterPlayer(button.dataset.shieldPlayer,S.teamId);if(player)openShield(player);return}
@@ -3358,6 +3469,7 @@ document.addEventListener('submit',event=>{const form=event.target;event.prevent
  return;
 }if(form.id==='login-form')completeLogin(form);if(form.id==='bid-form'){const p=dataPlayer(form.dataset.bidPlayer);if(!p)return;const bid=Number($('#bid-input').value),remaining=S.balance===null?null:S.balance-bid,premium=p.value>0?(bid-p.value)/p.value*100:null;$('#bid-result').innerHTML=`${premium!==null?`Pagarías <strong>${num(premium)}%</strong> ${premium>=0?'por encima':'por debajo'} del valor de mercado.<br>`:''}${remaining===null?'Actualiza tu saldo para calcular cuánto te quedaría.':`Saldo tras esta compra hipotética: <strong class="${remaining<0?'amber':'green'}">${formatMoney(remaining,false)}</strong>.`}<br>Coste por punto estimado: ${p.expected>0?formatMoney(bid/p.expected,false):'sin proyección suficiente'}.<br>Esto es una simulación; no se ha enviado una puja.`}});
 document.addEventListener('change',event=>{const el=event.target;
+ if(el.hasAttribute('data-squad-player')) return handleSquadAction(el);
  if(el.id==='assistant-budget' || el.id==='assistant-sale'){
   if (!el.validity.valid) return el.reportValidity();
   const state = assistantState();

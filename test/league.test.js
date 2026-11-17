@@ -11,6 +11,7 @@ const rival = 'T2';
 const market = competition + '/league/' + league + '/market';
 const standings = competition + '/leagues/' + league + '/standing';
 const squad = competition + '/leagues/' + league + '/teams/' + rival;
+const ownSquad = competition + '/leagues/' + league + '/teams/' + own;
 const balance = competition + '/teams/' + own + '/money';
 const leagueList = competition + '/leagues';
 const slot = {playerTeamId: 'slot-2', playerMaster: {id: '42'}, buyoutClause: 4200000};
@@ -49,6 +50,44 @@ async function fixture(overrides = {}) {
 
 const bid = {action: 'bid', leagueId: league, playerId: '91', listingId: listing.id, amount: 1500000};
 const clause = {action: 'clause', leagueId: league, playerId: '42', sellerId: rival, slotId: 'slot-2', amount: 4200000};
+const ownSlot = {
+  playerTeamId: 'slot-1', playerMaster: {id: '14', marketValue: 1000000}, buyoutClause: 2000000,
+};
+const sale = {action: 'list-player', leagueId: league, playerId: '14', slotId: 'slot-1', amount: 1050000};
+const raise = {...sale, action: 'raise-clause', previousClause: 2000000, amount: 100000};
+
+test('listing verifies ownership and the current market price before posting the squad slot', async () => {
+  const path = 'POST ' + market + '/sell';
+  const {requests, call} = await fixture({
+    ['GET ' + ownSquad]: {players: [ownSlot]},
+    [path]: {ok: true},
+  });
+  assert.equal((await call({...sale, playerId: '42', slotId: 'slot-2'}))[0], 409);
+  assert.equal((await call({...sale, amount: 999999}))[0], 409);
+  assert.equal(requests.some(request => request.key === path), false);
+  assert.deepEqual(await call(sale), [200, {ok: true}]);
+  assert.deepEqual(requests.at(-1), {key: path, body: {playerId: 'slot-1', salePrice: 1050000}});
+
+  const alreadyListed = await fixture({
+    ['GET ' + ownSquad]: {players: [ownSlot]},
+    ['GET ' + market]: [{sellerTeam: {id: own}, playerTeam: ownSlot}],
+  });
+  assert.equal((await alreadyListed.call(sale))[0], 409);
+  assert.equal(alreadyListed.requests.some(request => request.key === path), false);
+});
+
+test('raising a clause rechecks the old clause and sends twice the confirmed cost', async () => {
+  const path = 'PUT ' + competition + '/league/' + league + '/buyout/player';
+  const {requests, call} = await fixture({
+    ['GET ' + ownSquad]: {players: [{playerTeam: ownSlot}]},
+    [path]: {ok: true},
+  });
+  assert.equal((await call({...raise, previousClause: 1900000}))[0], 409);
+  assert.equal((await call({...raise, amount: 8000001}))[0], 409);
+  assert.equal(requests.some(request => request.key === path), false);
+  assert.deepEqual(await call(raise), [200, {ok: true}]);
+  assert.deepEqual(requests.at(-1), {key: path, body: {playerId: 'slot-1', factor: 2, valueToIncrease: 200000}});
+});
 
 test('a confirmed bid uses the market listing ID and a validated amount', async () => {
   const route = 'POST ' + market + '/entry-7/bid';
