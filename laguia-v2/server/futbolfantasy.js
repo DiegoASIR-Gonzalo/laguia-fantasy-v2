@@ -118,6 +118,42 @@ async function ffHtml(url, fetcher) {
   return result.text();
 }
 
+function ffCurrentStatus(html) {
+  const section = html.split('id="profile-status"')[1]?.split('id="profile-partidos"')[0] ?? '';
+  const notice = section.match(/<div class="[^"]*\bcomentario\b[^"]*"[^>]*>([\s\S]*?)<\/div>/)?.[1];
+  if (notice) {
+    const badge = section.match(/<img\b[^>]*\balt="([^"]+)"[^>]*_box_min\.png"[^>]*>/)?.[1];
+    const detail = notice.match(/<span class="[^"]*\blesion\b[^"]*"[^>]*>([\s\S]*?)<\/span>/)?.[1];
+    const forecast = notice.match(/<span>([\s\S]*?)<\/span>/)?.[1];
+    return {label: ffText(badge) || 'Estado en seguimiento', detail: ffText(detail), forecast: ffText(forecast)};
+  }
+  const available = section.match(/<span class="[^"]*\bdisponible\b[^"]*"[^>]*>([\s\S]*?)<\/span>/)?.[1];
+  return available ? {label: ffText(available), detail: '', forecast: ''} : null;
+}
+
+function ffRelatedNews(html) {
+  const section = html.split('id="noticiasBox"')[1]?.split(/<\w+\b[^>]*\bclass="[^"]*\bjs-profile-section\b/)[0] ?? '';
+  const rows = section.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').split(/<div class="noticiaJugador\b/).slice(1);
+  const news = new Map();
+  for (const row of rows) {
+    const date = row.match(/<div class="date\b[^"]*"[^>]*>\s*(\d{2}\/\d{2})\s*<\/div>/)?.[1] ?? '';
+    const link = row.match(/<a\s[^>]*href="https:\/\/www\.futbolfantasy\.com(\/[a-z0-9-]+\/noticias\/[a-z0-9-]+)"[^>]*>([\s\S]*?)<\/a>/);
+    if (!link) continue;
+    const url = FF_ORIGIN + link[1];
+    const title = ffText(link[2]);
+    if (title && !news.has(url)) news.set(url, {title, url, date});
+    if (news.size === 5) break;
+  }
+  return [...news.values()];
+}
+
+export async function footballFantasyPlayer(slug, fetcher) {
+  return ffCached('player/' + slug, async () => {
+    const html = await ffHtml(FF_ORIGIN + '/jugadores/' + slug, fetcher);
+    return {status: ffCurrentStatus(html), news: ffRelatedNews(html)};
+  });
+}
+
 export async function footballFantasyTeam(teamSlug, fetcher) {
   const slug = ffClubAliases.get(teamSlug) || teamSlug;
   const {week, fixtures} = await ffCached('fixtures', async () => ffFixtureIndex(await ffHtml(FF_FIXTURES, fetcher)));

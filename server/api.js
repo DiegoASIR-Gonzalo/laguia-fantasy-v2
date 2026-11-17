@@ -1,4 +1,4 @@
-import {footballFantasyTeam} from './futbolfantasy.js';
+import {footballFantasyPlayer, footballFantasyTeam} from './futbolfantasy.js';
 
 const API='https://fantasy-api.llt-services.com/api';
 const IDP='https://login.laliga.es/laligadspprob2c.onmicrosoft.com/oauth2/v2.0/';
@@ -315,6 +315,13 @@ export async function handleApi(request,env,fetcher=fetch){const url=new URL(req
   if(!session)return new Response(JSON.stringify({error:'Conecta tu cuenta para gestionar tu liga.'}),{status:401,headers});
   try{return await leagueEndpoint(request,url,session,fetcher,headers)}
   catch(error){if(error.status===401)clearSession(headers);throw error}
+ }
+ if(url.pathname==='/api/ff'&&url.searchParams.has('player')){
+  if(request.method!=='GET')return json({error:'Método no admitido.'},405);
+  const slug=url.searchParams.get('player');
+  if(!/^[a-z0-9-]{1,100}$/.test(slug))return json({error:'Jugador no válido.'},400);
+  const profile=await footballFantasyPlayer(slug,fetcher);
+  return json(profile,200,{'cache-control':'public, max-age=300, stale-while-revalidate=300'});
  }
  if(url.pathname==='/api/ff'&&url.searchParams.has('team')){
   if(request.method!=='GET')return json({error:'Método no admitido.'},405);

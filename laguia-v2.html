@@ -79,6 +79,14 @@
 .report-source{margin-top:13px}
 .report-source a{display:inline-flex;align-items:center;gap:6px;color:#ff9ba7;text-decoration:none}
 .report-source .icon{width:12px}
+.player-updates{margin-bottom:15px}
+.player-updates .hint{margin:0}
+.player-updates .report-kv{grid-template-columns:1fr}
+.player-news{list-style:none;margin:0;padding:0}
+.player-news li+li{border-top:1px solid var(--line)}
+.player-news a{display:flex;gap:10px;padding:8px 0;color:#ffb0ba;text-decoration:none}
+.player-news a:hover{text-decoration:underline}
+.player-news .hint{flex:none}
 .report-rival .profile-hero{gap:14px}
 .profile-emblem{display:grid;place-items:center;width:66px;height:66px;flex:none;border:1px solid #623341;border-radius:13px;background:#39202a;color:#ff9ba7;font-size:22px;font-weight:700}
 .rival-name-btn{background:none;border:0;color:inherit;text-align:left;padding:0;cursor:pointer}
@@ -1161,9 +1169,9 @@ let rewardCheckInFlight = null;
 let claimRewardInFlight = null;
 
 function rewardPendingTotal(reward = S.reward) {
- const amount = Number(reward?.amount);
- if (!Number.isFinite(amount) || amount <= 0) return null;
- return amount * Math.max(1, Number(reward?.remaining) || 1);
+ const {amount, remaining} = reward ?? {};
+ if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(remaining) || remaining <= 0) return null;
+ return amount * remaining;
 }
 
 function rewardDescription(reward) {
@@ -1193,16 +1201,18 @@ function rewardView() {
 function openDailyReward() {
  if (S.demo || !S.teamId || !sameLeague(S.league)) return;
  const available = S.reward?.available === true;
- const pending = available ? Math.max(0, Number(S.reward?.remaining) || 1) : 0;
+ const pending = S.reward?.remaining ?? null;
  const unit = Number(S.reward?.amount);
  const total = available ? rewardPendingTotal() : null;
  const title = available ? '¡Puedes reclamar tu recompensa diaria!' : 'Recompensa diaria';
+ const pendingLabel = pending === null ? 'Cantidad por confirmar' :
+  pending + (pending === 1 ? ' recompensa' : ' recompensas');
  overlay(`<section class="reward-dialog" data-reward-dialog>
   <button class="icon-btn reward-close" data-action="close-overlay" aria-label="Cerrar">${icon('close')}</button>
   <div class="reward-icon">${icon('trophy')}</div>
   <h2>${title}</h2>
   <p>${e(rewardDescription(S.reward))}</p>
-  ${available ? `<div class="reward-current"><span>Puedes recoger ahora</span><strong>${total !== null ? '+' + fmtFull(total) : pending + ' recompensa' + (pending > 1 ? 's' : '')}</strong>${pending > 1 && Number.isFinite(unit) && unit > 0 ? `<small class="hint">${pending} × ${fmtFull(unit)}</small>` : ''}</div>` : ''}
+  ${available ? `<div class="reward-current"><span>Puedes recoger ahora</span><strong>${total !== null ? '+' + fmtFull(total) : pendingLabel}</strong>${pending > 1 && Number.isFinite(unit) && unit > 0 ? `<small class="hint">${pending} × ${fmtFull(unit)}</small>` : ''}</div>` : ''}
   <div class="reward-current"><span>Saldo actual</span><strong data-reward-current>${fmtFull(S.balance)}</strong></div>
   <p class="hint">${available ? 'Reclama aquí las monedas de hoy. Si LALIGA no confirma el cobro, actualiza el estado o ábrela en su app.' : 'Consulta el saldo que devuelve LaLiga. Si acabas de reclamarla en la app oficial, comprueba el saldo.'}</p>
   <div class="reward-actions">
@@ -2004,6 +2014,41 @@ function reportSection(title, ico, content) {
  return `<section class="report-section"><h3>${icon(ico)} ${e(title)}</h3>${content}</section>`;
 }
 
+function playerUpdates(profile) {
+ const {status, news} = profile;
+ const fields = status ? [
+  ['Disponibilidad',e(status.label)],
+  ...(status.detail ? [['Causa',e(status.detail)]] : []),
+  ...(status.detail || status.forecast ? [['Previsión',e(status.forecast || 'Sin plazo publicado')]] : []),
+ ] : [];
+ const headlines = news.filter(item=>/^https:\/\/www\.futbolfantasy\.com\/[a-z0-9-]+\/noticias\/[a-z0-9-]+$/.test(item.url));
+ return `<div class="report-columns">
+  ${reportSection('Estado físico · FútbolFantasy','alert',fields.length ? kvHtml(fields)
+   : '<p class="hint">Sin estado físico publicado.</p>')}
+  ${reportSection('Noticias · FútbolFantasy','external',headlines.length
+   ? `<ul class="player-news">${headlines.map(item=>`<li><a href="${e(item.url)}" target="_blank" rel="noopener noreferrer">
+     ${item.date ? `<span class="hint">${e(item.date)}</span>` : ''}<span>${e(item.title)}</span></a></li>`).join('')}</ul>`
+   : '<p class="hint">Sin noticias relacionadas.</p>')}
+ </div>`;
+}
+
+async function loadPlayerUpdates(player, dialog, teamStats) {
+ const target = $('[data-player-updates]',dialog);
+ await teamStats;
+ if (!target.isConnected) return;
+ const ff = ffFor(player);
+ if (!ffLink(ff)) {
+  target.textContent = 'Sin ficha asociada en FútbolFantasy.';
+  return;
+ }
+ try {
+  const profile = await api('/api/ff?player=' + encodeURIComponent(ff.slug));
+  if (target.isConnected) target.innerHTML = playerUpdates(profile);
+ } catch {
+  if (target.isConnected) target.textContent = 'No se pudieron consultar las noticias y el estado físico de FútbolFantasy.';
+ }
+}
+
 function reportPoints(detail, extra = false) {
  const rows = collection(detail?.playerStats);
  const total = key => {
@@ -2161,6 +2206,7 @@ async function openPlayer(id, teamId = '', fromClauseReport = false) {
  const dialog = overlay(modalHeader('Informe del jugador', back) + `<div class="report-body">
   ${playerIdentity(p)}<div data-player-actions>${profilePlayerActions(p,teams.length>0)}</div>
   <div data-player-summary>${playerSummary(p)}</div>
+  <div data-player-updates class="hint player-updates" aria-live="polite">Consultando estado físico y noticias en FútbolFantasy…</div>
   <div data-player-report>${playerReport(p, null, [], pointsHistory(p), true)}</div>
   <details class="report-section price-calculator"><summary>Calculadora de puja</summary>
    <form id="bid-form" data-bid-player="${e(p.id)}"><label class="trade-input" for="bid-input">Importe simulado en euros
@@ -2175,7 +2221,9 @@ async function openPlayer(id, teamId = '', fromClauseReport = false) {
   if (owned) $('[data-player-summary]',dialog).innerHTML = playerSummary(p);
  });
  const path = privateBase + '/player/' + encodeURIComponent(id);
- const [detail, history] = await Promise.allSettled([data(path), marketHistoryFor(id), loadFfTeam(ffTeamSlug(p))]);
+ const teamStats = loadFfTeam(ffTeamSlug(p));
+ void loadPlayerUpdates(p,dialog,teamStats);
+ const [detail, history] = await Promise.allSettled([data(path), marketHistoryFor(id), teamStats]);
  if (!dialog.isConnected) return;
  $('[data-player-summary]', dialog).innerHTML = playerSummary(p);
  const weeks = pointsHistory(p,detail.value);

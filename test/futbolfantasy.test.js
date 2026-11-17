@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {footballFantasyTeam} from '../server/futbolfantasy.js';
+import {footballFantasyPlayer, footballFantasyTeam} from '../server/futbolfantasy.js';
 
 test('the selected fixture resolves the lineup API for the requested club', async () => {
   const index = `
@@ -48,4 +48,35 @@ test('the selected fixture resolves the lineup API for the requested club', asyn
   assert.deepEqual(player.setPieces.c, {accurate: 7, attempted: 34});
   assert.equal(await footballFantasyTeam('unknown-club', fetcher), null);
   assert.equal(calls.length, 2);
+});
+
+test('a player profile uses the current injury and shows each related headline once', async () => {
+  const url = 'https://www.futbolfantasy.com/laliga/noticias/1-parte-medico';
+  const row = `<div class="noticiaJugador d-flex"><div class="date mr-1">16/11</div>
+    <a href="${url}">Parte m&#233;dico</a></div>`;
+  const html = `<div id="profile-status">
+    <img alt="Lesionado" src="/lesionado_box_min.png">
+    <div class="comentario text-center"><span class="lesion mt-0">Esguince de tobillo</span>
+    <span>Baja hasta diciembre</span></div>
+  </div><div id="profile-partidos"></div>
+  <div id="noticiasBox">${row}<script>noticias.push('${row}');</script>${row}</div>`;
+  const profile = await footballFantasyPlayer('injured-player', request => {
+    assert.equal(request, 'https://www.futbolfantasy.com/jugadores/injured-player');
+    return new Response(html);
+  });
+  assert.deepEqual(profile, {
+    status: {label: 'Lesionado', detail: 'Esguince de tobillo', forecast: 'Baja hasta diciembre'},
+    news: [{title: 'Parte médico', url, date: '16/11'}],
+  });
+});
+
+test('past injuries do not replace the current availability', async () => {
+  const html = `<div id="profile-status"><span class="disponible mx-auto">
+    <i class="fa fa-check"></i> Disponible para competir</span></div>
+    <div id="profile-partidos"></div><div class="comentario"><span class="lesion">Lesión anterior</span></div>`;
+  const profile = await footballFantasyPlayer('available-player', () => new Response(html));
+  assert.deepEqual(profile, {
+    status: {label: 'Disponible para competir', detail: '', forecast: ''},
+    news: [],
+  });
 });
