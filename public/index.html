@@ -92,6 +92,17 @@
 .profile-emblem{display:grid;place-items:center;width:66px;height:66px;flex:none;border:1px solid #623341;border-radius:13px;background:#39202a;color:#ff9ba7;font-size:22px;font-weight:700}
 .rival-name-btn{background:none;border:0;color:inherit;text-align:left;padding:0;cursor:pointer}
 .rival-name-btn:hover strong{color:#ff9ba7}
+.rivals-ranking table{min-width:1180px}
+.rivals-ranking td{vertical-align:top}
+.rivals-ranking td small{display:block;margin-top:4px}
+.rivals-ranking td:nth-child(8){min-width:290px;max-width:420px;white-space:normal}
+.rival-player-summary summary{cursor:pointer;color:var(--text)}
+.rival-player-list{list-style:none;margin:10px 0 0;padding:0}
+.rival-player-list li{padding:9px 0;border-top:1px solid var(--line)}
+.rival-player-list .player-cell{min-width:0;width:auto}
+.rival-player-values{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin-top:4px;font-size:12px}
+.rival-player-values .badge{font-size:11px;white-space:normal}
+.rivals-load-status{margin:10px 18px;font-size:13px;color:var(--chart-neutral)}
 .rival-roster{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .rival-roster .table-scroll{background:var(--panel)}
 .rival-roster table th,.rival-roster table td{white-space:nowrap}
@@ -430,6 +441,7 @@ function render(){
   else void loadMarketTrends();
  }
  if(assistantUsesClauses()) void loadClauseMarket();
+ if(S.tab==='rivals') void loadClauseMarket();
 }
 function authView(){return `<main class="auth-layout"><section class="auth-story">${brand()}<div class="story-copy"><div class="eyebrow"><span class="dot"></span> EL FÚTBOL SE SIENTE. LA LIGA SE GANA.</div><h1>Tu intuición.<br>Con datos.<em>Tu ventaja.</em></h1><p>El talento está en tu equipo.<br>La diferencia, en tus decisiones.</p></div><div class="story-features"><span>${icon('shield')} Tu cuenta, protegida</span><span>${icon('chart')} Datos que importan</span><span>${icon('spark')} Decisiones inteligentes</span></div></section><section class="auth-main"><div class="auth-version">LA NUEVA FORMA DE JUGAR · V2.0</div><div class="auth-card"><div class="auth-mark">${icon('trophy')}</div><h2>${S.loginStep?'Un último paso.':'Aquí empieza tu próxima victoria.'}</h2><p class="auth-intro">${S.loginStep?'Completa el acceso oficial y conecta tus ligas.':'Conecta tu cuenta de LALIGA Fantasy.<br>Tus ligas, tu equipo y tu ventaja. Todo en un lugar.'}</p>${S.loginStep?loginFlow():`<button class="btn google full" data-action="login"><span class="google-mark" aria-hidden="true">G</span> Conectar con LALIGA Fantasy ${icon('external')}</button><label class="auth-remember"><input id="remember" type="checkbox" ${S.remember?'checked':''}><span>Recordarme durante 7 días<small>Renovación automática si LALIGA mantiene el permiso.</small></span></label><div class="auth-secure">${icon('lock')}<span>El acceso se realiza en la página oficial de LALIGA.<br>Tus contraseñas y tokens no se muestran en esta web.</span></div><div class="auth-note">${icon('info')} Primera conexión: recomendamos un ordenador. El acceso oficial usa una redirección de la app; te guiaremos para completarla.</div><div class="or">PRIMERO, ECHA UN VISTAZO</div><button class="btn subtle full" data-action="demo">Explorar la demo ${icon('arrow')}</button>`}</div><p class="auth-foot">Herramienta independiente. Sin afiliación oficial con LALIGA.<br>Datos de LALIGA Fantasy y FútbolFantasy.</p></section></main>`}
 function loginFlow(){return `<div class="login-flow"><div class="step"><b>1</b><span>En la pestaña oficial que se ha abierto, elige <strong>Google</strong> o tu método habitual y termina de identificarte.</span></div><div class="step"><b>2</b><span>En esa pestaña, abre <strong>F12 → Red / Network</strong>. Busca la solicitud <strong>authredirect://com.lfp.laligafantasy</strong> y copia su URL completa con <strong>code=</strong> y <strong>state=</strong>.</span></div><div class="step"><b>3</b><span>Pégala aquí. El código se canjea una sola vez en el servidor.</span></div><form id="login-form"><label class="screen-reader" for="redirect-input">URL de redirección de LALIGA</label><textarea id="redirect-input" name="redirect" required autocomplete="off" spellcheck="false" placeholder="authredirect://com.lfp.laligafantasy?code=…&state=…"></textarea><div id="login-error" role="alert"></div><button class="btn primary full" style="margin-top:12px" type="submit">Conectar mis ligas ${icon('arrow')}</button></form><button class="link-btn" data-action="restart-login">${icon('refresh')} Volver a abrir el acceso oficial</button><p class="hint">La autorización dura 15 minutos. Si no ves la solicitud, activa «Conservar registro» en Red y repite el acceso. En móvil, la app oficial puede interceptar la redirección.</p><button class="link-btn" data-action="back-auth">${icon('left')} Volver</button></div>`}
@@ -833,6 +845,7 @@ async function loadClauseMarket(force = false) {
  state.loading = true;
  paintClauseMarket();
  paintAssistantClauseResults();
+ paintRivalsTable();
  for (let start=0;start<teams.length && current();start+=4) {
   const batch = teams.slice(start,start+4);
   const results = await Promise.allSettled(batch.map(team =>
@@ -845,6 +858,9 @@ async function loadClauseMarket(force = false) {
     if (team.id!==S.teamId) S.rivalRosters.set(team.id,result.value);
    } else failed.push(team.name);
   });
+  state.rosters = new Map(rosters);
+  state.failed = [...failed];
+  paintRivalsTable();
  }
  if (!current()) return;
  const players = [...rosters.values()].flat().filter(p=>p.clause>0);
@@ -856,9 +872,10 @@ async function loadClauseMarket(force = false) {
   quotes.set(clauseKey(p),prior?.amount===p.clause ? {...prior,last:now} : {amount:p.clause,first:now,last:now});
   nextUnlock = Math.min(nextUnlock,clauseProtection(p,now).until ?? Infinity);
  }
- const slugs = [...new Set(players.map(ffTeamSlug).filter(Boolean))];
+ const slugs = [...new Set([...rosters.values()].flat().map(ffTeamSlug).filter(Boolean))];
  for (let start=0;start<slugs.length && current();start+=4) {
   await Promise.all(slugs.slice(start,start+4).map(loadFfTeam));
+  if (current()) paintRivalsTable();
  }
  if (!current()) return;
  Object.assign(state,{rosters,failed,quotes,nextUnlock,updatedAt:now,loading:false});
@@ -866,6 +883,7 @@ async function loadClauseMarket(force = false) {
  if (owners) owners.innerHTML = clauseOwnerOptions();
  paintClauseMarket();
  paintAssistantClauseResults();
+ paintRivalsTable();
 }
 
 function clauseInsights(p, now = Date.now()) {
@@ -934,10 +952,11 @@ function clauseProtectionHtml(protection) {
 function tickClauseMarket() {
  for (const time of $$('[data-clause-unlock]')) time.textContent = clauseRemaining(Number(time.dataset.clauseUnlock));
  const state = S.clauseMarket;
+ if(S.screen==='app' && S.tab==='rivals') paintRivalsTable();
  if (!state || state.nextUnlock>Date.now()) return;
  state.nextUnlock = Infinity;
  state.updatedAt = 0;
- if (S.screen==='app' && ((S.tab==='market' && isClauseTab()) || assistantUsesClauses())) void loadClauseMarket();
+ if (S.screen==='app' && ((S.tab==='market' && isClauseTab()) || S.tab==='rivals' || assistantUsesClauses())) void loadClauseMarket();
 }
 
 function tickSquadClauses() {
@@ -2447,6 +2466,83 @@ async function openRival(id) {
  }
 }
 
+function rankingPlayerSummary(team, roster) {
+ if (!roster.length) return '<span class="muted">Sin jugadores</span>';
+ const rows = roster.map(p=>clauseInsights(p)).sort((a,b)=>
+  Number(b.recommended && !b.protection.locked)-Number(a.recommended && !a.protection.locked) ||
+  (b.score??-1)-(a.score??-1) || b.p.points-a.p.points);
+ const smart = rows.filter(row=>row.recommended && !row.protection.locked).length;
+ const positions = Object.entries(POS).map(([id,name])=>name+' '+roster.filter(p=>p.position===Number(id)).length).join(' · ');
+ return `<details class="rival-player-summary" data-ranking-team="${e(team.id)}">
+  <summary>${roster.length} jugadores${team.id===S.teamId?'':' · '+smart+' inteligentes'}</summary>
+  <small class="muted">${e(positions)}</small>
+  <ul class="rival-player-list">${rows.map(row=>{
+   const {p,protection,recommended,projected,prob}=row;
+   let label = 'No recomendado', tone = 'tone-flat';
+   if (ownPlayer(p)) label = 'Tu jugador';
+   else if (!(p.clause>0)) label = 'Sin cláusula';
+   else if (protection.locked) label = 'Protegido';
+   else if (prob===null || projected===null) label = 'Sin datos suficientes';
+   else if (recommended) { label = 'Clausulazo inteligente'; tone = 'tone-gain'; }
+   return `<li>${playerCell(p)}<div class="rival-player-values">
+    <span>Valor ${fmtFull(p.value||null)}</span>
+    <span>Cláusula ${fmtFull(p.clause||null)}</span>
+    <span class="badge ${tone}" style="color:var(--tone)" title="Valoración según precio, titularidad, puntos estimados, estado y tu saldo">${label}</span>
+   </div><small class="muted">${e(clauseStatus(p))}</small></li>`;
+  }).join('')}</ul>
+ </details>`;
+}
+
+function rankingRows() {
+ const points = ownPoints();
+ return S.standings.map(standingInfo).map(team => {
+   const mine = team.id === S.teamId;
+   const roster = S.clauseMarket.rosters.get(team.id);
+   const known = Array.isArray(roster);
+   const values = known ? roster.map(p=>p.value) : [];
+   const total = known && values.every(value=>Number.isFinite(value) && value>0)
+    ? values.reduce((sum,value)=>sum+value,0) : team.value;
+   const changes = known ? roster.map(p=>ffFor(p)?.dailyChange ?? null) : [];
+   const complete = known && changes.every(value=>Number.isFinite(value));
+   const daily = complete ? changes.reduce((sum,value)=>sum+value,0) : null;
+   const open = known ? roster.filter(p=>p.clause>0 && !clauseProtection(p).locked).length : null;
+   const missing = changes.filter(value=>value===null).length;
+   const gap = mine || points === null || team.points === null ? null : team.points - points;
+   return `<tr class="${mine ? 'rival-you' : ''}">
+    <td><span class="rival-rank ${team.rank === 1 ? 'medal' : ''}">${team.rank ? String(team.rank).padStart(2,'0') : '—'}</span></td>
+    <td><button class="rival-identity rival-name-btn" data-rival="${e(team.id)}">
+     <span class="rival-avatar">${mine ? 'TU' : e(team.name.slice(0,2).toUpperCase())}</span>
+     <span><strong>${e(team.name)}</strong><small>${e(team.manager)}</small></span>
+    </button></td>
+    <td class="points">${fmtInteger(team.points)}</td>
+    <td class="${gap !== null && gap < 0 ? 'green' : 'muted'}">${gap === null ? '—' : (gap > 0 ? '+' : '') + fmtInteger(gap) + ' pts'}</td>
+    <td>${fmtFull(total)}</td>
+    <td>${signedMoney(daily)}${known && missing ? `<small class="muted">${roster.length-missing}/${roster.length} jugadores con dato</small>` : ''}</td>
+    <td>${open===null?'—':open}${known ? `<small class="muted">de ${roster.length} jugadores</small>` : ''}</td>
+    <td>${known ? rankingPlayerSummary(team,roster) : '<span class="muted">Plantilla pendiente</span>'}</td>
+    <td><button class="link-btn" data-rival="${e(team.id)}">Ver perfil ${icon('arrow')}</button></td>
+   </tr>`;
+  }).join('');
+}
+
+function paintRivalsTable() {
+ const body = $('#rivals-ranking-rows');
+ if (!body) return;
+ const open = [...body.querySelectorAll('details[open]')].map(item=>item.dataset.rankingTeam);
+ const focused = document.activeElement;
+ if (focused && body.contains(focused) && focused.tagName!=='SUMMARY') return;
+ const focusedTeam = focused?.closest('[data-ranking-team]')?.dataset.rankingTeam;
+ body.innerHTML = rankingRows();
+ for (const detail of body.querySelectorAll('details')) {
+  detail.open = open.includes(detail.dataset.rankingTeam);
+  if (detail.dataset.rankingTeam===focusedTeam) detail.querySelector('summary').focus({preventScroll:true});
+ }
+ const state = S.clauseMarket;
+ $('#rivals-load-status').textContent = state.loading ? 'Consultando plantillas y variaciones diarias…' :
+  state.failed.length ? 'No se pudo consultar la plantilla de '+state.failed.join(', ')+'.' :
+  'Variación diaria según FútbolFantasy. Cláusulas abiertas sin protección individual.';
+}
+
 function rivalsView() {
  const points = ownPoints();
  const teams = S.standings.map(standingInfo);
@@ -2458,22 +2554,10 @@ function rivalsView() {
   ${statCard('Distancia al líder',fmtInteger(leader == null || points === null ? null : Math.max(0,leader - points)),'Puntos para el primer puesto','trend')}
  </div><section class="panel">
   <div class="panel-head"><h2>Clasificación de tu liga</h2><span class="badge">${e(S.league.name)}</span></div>
-  <div class="table-scroll full-table"><table><thead><tr><th>Pos.</th><th>Equipo</th>
-   <th>Puntos</th><th>Distancia contigo</th><th>Perfil</th></tr></thead>
-  <tbody>${teams.map(team => {
-   const mine = team.id === S.teamId;
-   const gap = mine || points === null || team.points === null ? null : team.points - points;
-   return `<tr class="${mine ? 'rival-you' : ''}">
-    <td><span class="rival-rank ${team.rank === 1 ? 'medal' : ''}">${team.rank ? String(team.rank).padStart(2,'0') : '—'}</span></td>
-    <td><button class="rival-identity rival-name-btn" data-rival="${e(team.id)}">
-     <span class="rival-avatar">${mine ? 'TU' : e(team.name.slice(0,2).toUpperCase())}</span>
-     <span><strong>${e(team.name)}</strong><small style="display:block">${e(team.manager)}</small></span>
-    </button></td>
-    <td class="points">${fmtInteger(team.points)}</td>
-    <td class="${gap !== null && gap < 0 ? 'green' : 'muted'}">${gap === null ? '—' : (gap > 0 ? '+' : '') + fmtInteger(gap) + ' pts'}</td>
-    <td><button class="link-btn" data-rival="${e(team.id)}">Ver perfil ${icon('arrow')}</button></td>
-   </tr>`;
-  }).join('')}</tbody></table></div>
+  <div class="table-scroll full-table rivals-ranking" tabindex="0" aria-label="Clasificación, valor y cláusulas"><table><thead><tr><th>Pos.</th><th>Equipo</th>
+   <th>Puntos</th><th>Distancia contigo</th><th>Valor del equipo</th><th>Variación diaria</th><th>Cláusulas abiertas</th><th>Jugadores</th><th>Perfil</th></tr></thead>
+  <tbody id="rivals-ranking-rows">${rankingRows()}</tbody></table></div>
+  <p id="rivals-load-status" class="rivals-load-status" aria-live="polite">Variación diaria según FútbolFantasy. Cláusulas abiertas sin protección individual.</p>
  </section>`;
 }
 
