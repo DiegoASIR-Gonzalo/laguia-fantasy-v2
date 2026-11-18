@@ -89,6 +89,33 @@ function rewardPlan(data, type) {
     : {limit: null, money: null};
 }
 
+async function playerDailyChange(id, fetcher) {
+  let response;
+  try {
+    response = await fetcher(API + competition + '/player/' + encodeURIComponent(id) + '/market-value?x-lang=es', {
+      headers: {'x-app': '2', 'x-lang': 'es', accept: 'application/json'},
+      signal: AbortSignal.timeout(6000),
+    });
+  } catch {
+    return null;
+  }
+  if (!response?.ok) return null;
+  const rows = await upstreamJson(response);
+  if (!Array.isArray(rows)) return null;
+  const byDay = new Map();
+  for (const row of rows) {
+    const day = String(row?.date ?? row?.timestamp ?? row?.day ?? '').slice(0, 10);
+    const value = numeric(row?.marketValue ?? row?.value ?? row?.price);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(day) && value !== null) byDay.set(day, value);
+  }
+  const days = [...byDay.keys()].sort();
+  if (days.length < 2) return null;
+  const last = days.at(-1);
+  const previous = days.at(-2);
+  const gap = (Date.parse(last) - Date.parse(previous)) / 86400000;
+  return gap >= 1 && gap <= 3 ? byDay.get(last) - byDay.get(previous) : null;
+}
+
 async function gameRead(path, session, fetcher) {
   const response = await official(path, session, fetcher);
   if (response.status === 401) throw fail(401, 'Tu acceso ha caducado. Conecta de nuevo tu cuenta.');
@@ -364,6 +391,21 @@ export async function handleApi(request,env,fetcher=fetch){const url=new URL(req
   if(!session)return new Response(JSON.stringify({error:'Conecta tu cuenta para gestionar tu liga.'}),{status:401,headers});
   try{return await leagueEndpoint(request,url,session,fetcher,headers)}
   catch(error){if(error.status===401)clearSession(headers);throw error}
+ }
+ if(url.pathname==='/api/daily-changes'){
+  if(request.method!=='GET')return json({error:'Método no admitido.'},405);
+  const ids=[...new Set(String(url.searchParams.get('ids')||'').split(',').map(id=>id.trim()).filter(id=>validId(id)))].slice(0,40);
+  if(!ids.length)return json({error:'Jugadores no válidos.'},400);
+  const changes={};
+  // Tope de tiempo: se devuelve lo consultado y el resto queda como null.
+  const deadline=Date.now()+8000;
+  for(let start=0;start<ids.length&&Date.now()<deadline;start+=10){
+   await Promise.all(ids.slice(start,start+10).map(async id=>{
+    changes[id]=await playerDailyChange(id,fetcher).catch(()=>null);
+   }));
+  }
+  for(const id of ids)changes[id]??=null;
+  return json({changes},200,{'cache-control':'public, max-age=300, stale-while-revalidate=300'});
  }
  if(url.pathname==='/api/ff'&&url.searchParams.has('player')){
   if(request.method!=='GET')return json({error:'Método no admitido.'},405);

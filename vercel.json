@@ -1,1 +1,1 @@
-{"version":2,"framework":null,"outputDirectory":"public"}
+{"version":2,"framework":null,"outputDirectory":"public","functions":{"api/*.js":{"maxDuration":30}}}

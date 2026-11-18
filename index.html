@@ -407,10 +407,21 @@ function saveLocal(key,value){try{localStorage.setItem(key,JSON.stringify(value)
 let S={screen:'auth',tab:'overview',auth:{authenticated:false},demo:false,loginStep:false,remember:true,leagues:[],league:null,players:[],teams:[],squadMetric:'complete',reward:null,rivalRosters:new Map(),recentTrades:new Map(),probabilities:{},ffUpdated:null,dataAt:null,live:false,roster:[],standings:[],market:[],balance:null,teamId:null,week:BOOTSTRAP?.week||{},calendar:[],errors:[],formation:'auto',risk:'balanced',lineup:null,locked:[],search:'',position:'all',sort:'points',page:0,marketTab:'all',marketSeller:'grouped',watch:[],settings:readLocal('lg-v2-settings',{injuries:true,probabilities:true,deadline:true}),dismissed:[],preferencesKey:null,assistant:null,budget:0,compareA:'',compareB:'',calendarWeek:null};
 const views={overview:['Resumen','Tu centro de mando'],squad:['Mi plantilla','Un once con ventaja'],market:['Mercado','Encuentra tu próximo acierto'],rivals:['Rivales','Conoce a tu competencia'],calendar:['Calendario','La jornada, bajo control'],coach:['Asistente','Mi liga'],radar:['Radar inteligente','Ve un paso por delante'],alerts:['Alertas','Que no se te escape nada'],settings:['Ajustes','A tu manera']};
 let dataReady=null,toastTimer,focusBefore;
+const requestTimeout = ms => typeof AbortSignal!=='undefined' && typeof AbortSignal.timeout==='function' ? AbortSignal.timeout(ms) : null;
 async function api(path,options={}){
  const league = S.league;
  const auth = S.auth;
- const r = await fetch(path,{credentials:'same-origin',...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...options.headers}});
+ const method = String(options.method||'GET').toUpperCase();
+ const signal = options.signal || requestTimeout(method==='GET' ? 20000 : 30000);
+ let r;
+ try {
+  r = await fetch(path,{credentials:'same-origin',...(signal?{signal}:{}),...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...options.headers}});
+ } catch (error) {
+  if (error?.name==='AbortError' || error?.name==='TimeoutError') {
+   throw Error('La consulta ha tardado demasiado. Vuelve a intentarlo.');
+  }
+  throw error;
+ }
  const raw = await r.json().catch(()=>({}));
  if (!r.ok) {
   if (r.status===401 && S.auth===auth && S.league===league && auth.authenticated) {
@@ -503,7 +514,19 @@ const signedMoney = value => `<span class="signed-value ${valueTone(value)}">${d
 
 const ffTeams = new Map();
 const ffInFlight = new Map();
-const ffTeamSlug = p => S.teams.find(t => String(t.id) === p.teamId)?.slug;
+const ffSlugByName = new Map(Object.entries({
+ 'ud almeria':'ud-almeria', 'atletico de madrid':'atletico-de-madrid', 'athletic club':'athletic-club',
+ 'fc barcelona':'fc-barcelona', 'real betis':'real-betis', 'celta':'rc-celta', 'elche cf':'elche-c-f',
+ 'rcd espanyol':'rcd-espanyol', 'getafe cf':'getafe-cf', 'granada cf':'granada-cf', 'levante ud':'levante-ud',
+ 'malaga cf':'malaga-cf', 'c a osasuna':'c-a-osasuna', 'rayo vallecano':'rayo-vallecano',
+ 'real madrid':'real-madrid', 'real sociedad':'real-sociedad', 'sevilla fc':'sevilla-fc', 'valencia cf':'valencia-cf',
+ 'real valladolid cf':'r-valladolid-cf', 'villarreal cf':'villarreal-cf', 'deportivo alaves':'d-alaves',
+ 'cordoba cf':'cordoba-cf', 'rc deportivo':'rc-deportivo', 'sd eibar':'sd-eibar', 'girona fc':'girona-fc',
+ 'ud las palmas':'ud-las-palmas', 'rcd mallorca':'rcd-mallorca', 'real sporting':'real-sporting',
+ 'cd tenerife':'cd-tenerife', 'r racing club':'r-racing-club', 'burgos cf':'burgos', 'cd leganes':'cd-leganes',
+ 'real oviedo':'real-oviedo', 'cd castellon':'cd-castellon', 'cadiz cf':'cadiz-cf',
+}));
+const ffTeamSlug = p => S.teams.find(t => String(t.id) === p.teamId)?.slug || ffSlugByName.get(nameKey(p.team));
 const nameKey = value => String(value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
  .replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -782,6 +805,7 @@ const lockedClauseTab = () => S.marketTab === 'clauses-locked';
 
 function newClauseMarket() {
  return {rosters:new Map(),quotes:new Map(),failed:[],updatedAt:0,nextUnlock:Infinity,loading:false,
+  dailyChanges:new Map(),dailyChangesLoading:false,dailyChangesDay:'',error:null,
   sort:'score',owner:'all',position:'all',recommended:false,demoAt:Date.now()};
 }
 
@@ -843,47 +867,128 @@ async function loadClauseMarket(force = false) {
  const rosters = new Map();
  const failed = [];
  state.loading = true;
+ state.error = null;
+ const today = madridDay.format(new Date());
+ if (!(state.dailyChanges instanceof Map) || force || state.dailyChangesDay !== today) {
+  state.dailyChanges = new Map();
+ }
+ state.dailyChangesDay = today;
  paintClauseMarket();
  paintAssistantClauseResults();
  paintRivalsTable();
- for (let start=0;start<teams.length && current();start+=4) {
-  const batch = teams.slice(start,start+4);
-  const results = await Promise.allSettled(batch.map(team =>
-   team.id===S.teamId && S.roster.length ? S.roster : leagueRoster(league,team)));
+ try {
+  for (let start=0;start<teams.length && current();start+=4) {
+   const batch = teams.slice(start,start+4);
+   const results = await Promise.allSettled(batch.map(team =>
+    team.id===S.teamId && S.roster.length ? S.roster : leagueRoster(league,team)));
+   if (!current()) return;
+   results.forEach((result,index)=>{
+    const team = batch[index];
+    if (result.status==='fulfilled') {
+     rosters.set(team.id,result.value);
+     if (team.id!==S.teamId) S.rivalRosters.set(team.id,result.value);
+    } else failed.push(team.name);
+   });
+   state.rosters = new Map(rosters);
+   state.failed = [...failed];
+   paintRivalsTable();
+  }
   if (!current()) return;
-  results.forEach((result,index)=>{
-   const team = batch[index];
-   if (result.status==='fulfilled') {
-    rosters.set(team.id,result.value);
-    if (team.id!==S.teamId) S.rivalRosters.set(team.id,result.value);
-   } else failed.push(team.name);
-  });
-  state.rosters = new Map(rosters);
-  state.failed = [...failed];
+  const players = [...rosters.values()].flat().filter(p=>p.clause>0);
+  const now = Date.now();
+  const quotes = new Map();
+  let nextUnlock = Infinity;
+  for (const p of players) {
+   const prior = state.quotes.get(clauseKey(p));
+   quotes.set(clauseKey(p),prior?.amount===p.clause ? {...prior,last:now} : {amount:p.clause,first:now,last:now});
+   nextUnlock = Math.min(nextUnlock,clauseProtection(p,now).until ?? Infinity);
+  }
+  const slugs = [...new Set([...rosters.values()].flat().map(ffTeamSlug).filter(Boolean))];
+  for (let start=0;start<slugs.length && current();start+=4) {
+   await Promise.all(slugs.slice(start,start+4).map(loadFfTeam));
+   if (current()) paintRivalsTable();
+  }
+  if (!current()) return;
+  Object.assign(state,{rosters,failed,quotes,nextUnlock,updatedAt:now,loading:false});
+  const owners = $('#clause-owner');
+  if (owners) owners.innerHTML = clauseOwnerOptions();
+  paintClauseMarket();
+  paintAssistantClauseResults();
   paintRivalsTable();
+  // El histórico se consulta después de pintar: la tabla queda disponible aunque tarde.
+  void fillMissingDailyChanges(state, rosters);
+ } catch (error) {
+  if (!current()) return;
+  Object.assign(state,{rosters,failed,updatedAt:Date.now(),loading:false,error:error.message||'No se pudo completar la consulta.'});
+  paintClauseMarket();
+  paintAssistantClauseResults();
+  paintRivalsTable();
+ } finally {
+  if (S.clauseMarket===state && state.loading) state.loading = false;
  }
- if (!current()) return;
- const players = [...rosters.values()].flat().filter(p=>p.clause>0);
- const now = Date.now();
- const quotes = new Map();
- let nextUnlock = Infinity;
- for (const p of players) {
-  const prior = state.quotes.get(clauseKey(p));
-  quotes.set(clauseKey(p),prior?.amount===p.clause ? {...prior,last:now} : {amount:p.clause,first:now,last:now});
-  nextUnlock = Math.min(nextUnlock,clauseProtection(p,now).until ?? Infinity);
+}
+
+let dailyChangesRun = 0;
+
+function latestDailyChange(history) {
+ const rows = (Array.isArray(history) ? history : []).filter(row=>row?.day && Number.isFinite(row.value));
+ if (rows.length < 2) return null;
+ const changes = dailyMarketChanges(rows);
+ const last = rows[rows.length-1];
+ const value = changes.get(last.day);
+ return Number.isFinite(value) ? value : null;
+}
+
+async function fillMissingDailyChanges(state, rosters) {
+ const league = S.league;
+ const current = () => sameLeague(league) && S.clauseMarket===state;
+ const run = ++dailyChangesRun;
+ const pending = [...new Map([...rosters.values()].flat()
+  .filter(p=>!Number.isFinite(ffFor(p)?.dailyChange) && !Number.isFinite(state.dailyChanges?.get(p.id)))
+  .map(p=>[p.id,p])).values()].slice(0,150);
+ if (!pending.length) {
+  state.dailyChangesLoading = false;
+  return;
  }
- const slugs = [...new Set([...rosters.values()].flat().map(ffTeamSlug).filter(Boolean))];
- for (let start=0;start<slugs.length && current();start+=4) {
-  await Promise.all(slugs.slice(start,start+4).map(loadFfTeam));
+ state.dailyChangesLoading = true;
+ if (current()) paintRivalsTable();
+ // Tope de tiempo: si una consulta se atasca, no deja la clasificación cargando.
+ const deadline = Date.now() + 18000;
+ const players = pending.map(p=>p.id);
+ const store = changes => {
+  for (const [id,value] of Object.entries(changes||{})) {
+   if (Number.isFinite(value)) state.dailyChanges.set(id,value);
+  }
+ };
+ try {
+  for (let start=0;start<players.length;start+=40) {
+   if (!current() || run!==dailyChangesRun || Date.now()>deadline) break;
+   const ids = players.slice(start,start+40);
+   let batch = null;
+   try {
+    batch = await api('/api/daily-changes?ids=' + ids.map(encodeURIComponent).join(','));
+   } catch {}
+   if (!current() || run!==dailyChangesRun) return;
+   if (batch) {
+    store(batch.changes);
+   } else {
+    // Si el servicio agrupado no responde, se consulta el histórico individual.
+    for (let index=0;index<ids.length;index+=5) {
+     if (!current() || run!==dailyChangesRun || Date.now()>deadline) break;
+     await Promise.allSettled(ids.slice(index,index+5).map(async id=>{
+      try {
+       const change = latestDailyChange(await marketHistoryFor(id));
+       if (current() && run===dailyChangesRun && change!==null) state.dailyChanges.set(id,change);
+      } catch {}
+     }));
+    }
+   }
+   if (current()) paintRivalsTable();
+  }
+ } finally {
+  if (run===dailyChangesRun) state.dailyChangesLoading = false;
   if (current()) paintRivalsTable();
  }
- if (!current()) return;
- Object.assign(state,{rosters,failed,quotes,nextUnlock,updatedAt:now,loading:false});
- const owners = $('#clause-owner');
- if (owners) owners.innerHTML = clauseOwnerOptions();
- paintClauseMarket();
- paintAssistantClauseResults();
- paintRivalsTable();
 }
 
 function clauseInsights(p, now = Date.now()) {
@@ -2502,11 +2607,13 @@ function rankingRows() {
    const values = known ? roster.map(p=>p.value) : [];
    const total = known && values.every(value=>Number.isFinite(value) && value>0)
     ? values.reduce((sum,value)=>sum+value,0) : team.value;
-   const changes = known ? roster.map(p=>ffFor(p)?.dailyChange ?? null) : [];
-   const complete = known && changes.every(value=>Number.isFinite(value));
-   const daily = complete ? changes.reduce((sum,value)=>sum+value,0) : null;
+   const changeFor = player =>
+    ffFor(player)?.dailyChange ?? S.clauseMarket.dailyChanges?.get(player.id) ?? null;
+   const changes = known ? roster.map(changeFor) : [];
+   const measured = changes.filter(value=>Number.isFinite(value));
+   const missing = changes.length - measured.length;
+   const daily = known && measured.length ? measured.reduce((sum,value)=>sum+value,0) : null;
    const open = known ? roster.filter(p=>p.clause>0 && !clauseProtection(p).locked).length : null;
-   const missing = changes.filter(value=>value===null).length;
    const gap = mine || points === null || team.points === null ? null : team.points - points;
    return `<tr class="${mine ? 'rival-you' : ''}">
     <td><span class="rival-rank ${team.rank === 1 ? 'medal' : ''}">${team.rank ? String(team.rank).padStart(2,'0') : '—'}</span></td>
@@ -2517,7 +2624,9 @@ function rankingRows() {
     <td class="points">${fmtInteger(team.points)}</td>
     <td class="${gap !== null && gap < 0 ? 'green' : 'muted'}">${gap === null ? '—' : (gap > 0 ? '+' : '') + fmtInteger(gap) + ' pts'}</td>
     <td>${fmtFull(total)}</td>
-    <td>${signedMoney(daily)}${known && missing ? `<small class="muted">${roster.length-missing}/${roster.length} jugadores con dato</small>` : ''}</td>
+    <td>${daily === null
+     ? `<span class="muted">—</span><small class="muted">Sin variación publicada</small>`
+     : `${signedMoney(daily)}${missing ? `<small class="muted">Parcial · ${measured.length}/${roster.length} jugadores</small>` : ''}`}</td>
     <td>${open===null?'—':open}${known ? `<small class="muted">de ${roster.length} jugadores</small>` : ''}</td>
     <td>${known ? rankingPlayerSummary(team,roster) : '<span class="muted">Plantilla pendiente</span>'}</td>
     <td><button class="link-btn" data-rival="${e(team.id)}">Ver perfil ${icon('arrow')}</button></td>
@@ -2539,8 +2648,10 @@ function paintRivalsTable() {
  }
  const state = S.clauseMarket;
  $('#rivals-load-status').textContent = state.loading ? 'Consultando plantillas y variaciones diarias…' :
+  state.error ? 'No se pudo completar la consulta: ' + state.error :
   state.failed.length ? 'No se pudo consultar la plantilla de '+state.failed.join(', ')+'.' :
-  'Variación diaria según FútbolFantasy. Cláusulas abiertas sin protección individual.';
+  state.dailyChangesLoading ? 'Completando las variaciones con el histórico de LALIGA…' :
+  'Variación diaria según FútbolFantasy y el histórico de LALIGA. Cláusulas abiertas sin protección individual.';
 }
 
 function rivalsView() {

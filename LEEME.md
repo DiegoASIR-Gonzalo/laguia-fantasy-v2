@@ -37,7 +37,7 @@ El asistente usa un motor estadístico local. La proyección base combina 60% me
 
 ## Fuentes y límites de validación
 
-El catálogo, los datos de liga y las operaciones usan la API de LALIGA Fantasy (`fantasy-api.llt-services.com/api`). La titularidad usa el endpoint público de la web original (`laguia-fantasy.vercel.app/api/titularidad`). Las estadísticas ampliadas se consultan en las alineaciones públicas de FútbolFantasy y se vinculan por equipo y nombre. Los campos sin coincidencia aparecen con un guion. Se indica fecha/jornada de las fuentes y se excluyen probabilidades de otra jornada al calcular proyecciones.
+El catálogo, los datos de liga y las operaciones usan la API de LALIGA Fantasy (`fantasy-api.llt-services.com/api`). La titularidad usa el endpoint público de la web original (`laguia-fantasy.vercel.app/api/titularidad`). Las estadísticas ampliadas se consultan en las alineaciones públicas de FútbolFantasy y se vinculan por equipo y nombre. La variación diaria de valor sale de FútbolFantasy y, cuando ese dato falta, del histórico de mercado de LALIGA (`/api/daily-changes`, agrupado en segundo plano para no bloquear la clasificación). Los campos sin coincidencia aparecen con un guion. Se indica fecha/jornada de las fuentes y se excluyen probabilidades de otra jornada al calcular proyecciones.
 
 Las operaciones de mercado, cláusulas y recompensas se probaron con datos de una liga simulada. La vista de plantilla y los perfiles se comprobaron en Chromium de escritorio y móvil.
 

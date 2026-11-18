@@ -1,6 +1,23 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {footballFantasyPlayer, footballFantasyTeam} from '../server/futbolfantasy.js';
+import {handleApi} from '../server/api.js';
+
+test('daily changes endpoint returns the last market variation for each player', async () => {
+  const histories = {
+    '1': [{marketValue: 1000, date: '2026-11-16T00:00:00+01:00'}, {marketValue: 1500, date: '2026-11-17T00:00:00+01:00'}],
+    '2': [{marketValue: 2000, date: '2026-11-16'}, {marketValue: 1700, date: '2026-11-17'}],
+    '3': [{marketValue: 900, date: '2026-11-01'}, {marketValue: 950, date: '2026-11-10'}],
+  };
+  const fetcher = url => {
+    const id = new URL(url).pathname.split('/').at(-2);
+    return Response.json(histories[id] ?? []);
+  };
+  const request = new Request('https://laguia.test/api/daily-changes?ids=1,2,3,1');
+  const response = await handleApi(request, {}, fetcher);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).changes, {1: 500, 2: -300, 3: null});
+});
 
 test('the selected fixture resolves the lineup API for the requested club', async () => {
   const index = `
