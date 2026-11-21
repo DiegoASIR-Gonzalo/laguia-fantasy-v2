@@ -206,6 +206,11 @@ test('a reward balance update needs a claim confirmed for the same team and day'
   assert.equal(rewardBalanceChange(before, {available:true,claimed:1}, 3300000, 'T2', day), null);
   assert.equal(rewardBalanceChange(before, {available:false}, 3300000, 'T1', '2026-11-17'), null);
   assert.equal(rewardBalanceChange(before, {available:false}, null, 'T1', day), null);
+  assert.equal(rewardBalanceChange(before, {available:false,claimed:1}, 3200000, 'T1', day), null);
+  assert.equal(rewardBalanceChange(before, {available:false,claimed:1}, 3100000, 'T1', day), null);
+  assert.equal(rewardBalanceChange({...before,claimed:1}, {available:false,claimed:1}, 3300000, 'T1', day), null);
+  const delayedStatus = rewardBalanceChange({...before,confirmed:true}, {available:true,claimed:0}, 3300000, 'T1', day);
+  assert.equal(delayedStatus.after, 3300000);
   for (const reward of [{available:true,claimed:1},{available:false,claimed:null}]) {
     const delta = rewardBalanceChange(before, reward, 3300000, 'T1', day);
     assert.equal(delta.before, 3200000);

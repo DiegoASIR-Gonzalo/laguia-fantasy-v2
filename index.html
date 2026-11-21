@@ -321,6 +321,9 @@
 .reward-balance-result{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-variant-numeric:tabular-nums}
 .reward-balance-result strong{font-size:21px;white-space:nowrap}
 .reward-balance-result span{font-weight:700;white-space:nowrap}
+.balance-credited{animation:reward-credit 1s ease}
+.balance-credited .stat-value{color:var(--green)}
+@keyframes reward-credit{0%,100%{border-color:var(--line)}40%{border-color:var(--green);box-shadow:0 0 18px #5adea526}}
 </style>
 </head>
 <body>
@@ -675,6 +678,10 @@ function saveLeaguePreference(name) {
 async function enterLeague(id) {
  const selected = (S.demo ? demoLeagues() : S.leagues).find(l => String(l.id) === id);
  if (!selected) return;
+ clearTimeout(rewardBalanceTimer);
+ rewardBalanceTimer = null;
+ clearTimeout(toastTimer);
+ $('#toast-root').replaceChildren();
  const league = S.league = {...selected};
  Object.assign(S, {
   tab: 'overview', screen: 'app', leagueLoading: true, errors: [], privateErrors: [], roster: [],
@@ -788,8 +795,8 @@ function playerCell(p, draggable=false){return `<button class="player-cell" data
 function formHtml(p){return `<span class="form" aria-label="Últimos puntos: ${p.form.join(', ')}">${p.form.map(x=>`<span class="${x>=7?'high':x<=2?'low':''}">${x}</span>`).join('')||'—'}</span>`}
 function probHtml(p){return `<span class="prob ${p.prob!==null&&p.prob<65?'low':''}" title="FútbolFantasy · Jornada ${p.probWeek||'—'}">${p.prob===null?'Sin dato':num(p.prob,0)+'%'}</span>`}
 function pitchHtml(lineup=bestLineup(),showMetric=false){if(!lineup)return `<div class="empty-state">${icon('shirt')}<h3>Hace falta un once completo</h3><p>Tu plantilla necesita al menos un portero y suficientes jugadores en cada posición para formar un once válido.</p></div>`;const captain=lineup.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];return `<div class="pitch"><div class="pitch-lines"><div class="penalty top"></div><div class="penalty bottom"></div></div><div class="pitch-players">${[4,3,2,1].map(pos=>`<div class="pitch-row">${lineup.players.filter(p=>p.position===pos).map(p=>`<button class="pitch-player" data-player="${e(p.id)}" ${showMetric?`draggable="true" data-lineup-drag="${e(p.id)}" data-lineup-slot="${e(p.id)}" data-lineup-position="${p.position}"`:''} title="${e(p.name)} · ${num(p.expected)} puntos estimados">${p.id===captain?.id?'<span class="captain-dot" title="Mayor proyección">★</span>':''}${p.image?`<img src="${e(p.image)}" alt="" loading="lazy" draggable="false">`:`<span class="shirt">${icon('shirt')}</span>`}<span class="pitch-name"><strong>${e(p.name)}${isShielded(p)?icon('shield','pitch-shield'):''}</strong>${showMetric?'':`<em>${num(p.expected)}</em>`}</span>${showMetric?squadPitchMetrics(p):`<span class="pitch-prob">${p.prob===null?'Sin probabilidad':p.prob+'% titular'}</span>`}</button>`).join('')}</div>`).join('')}</div></div>`}
-function statCard(label,value,foot,ico,color='',mini=false){return `<article class="stat-card"><div class="stat-top"><span>${label}</span>${icon(ico)}</div><div class="stat-value ${color}">${value}</div><div class="stat-foot">${foot}</div>${mini?'<svg class="mini-line" viewBox="0 0 65 27" fill="none"><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9" stroke="#5adea5" stroke-width="1.5"/><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9v24H1" fill="#5adea508"/></svg>':''}</article>`}
-function overviewView(){const lineup=bestLineup();const r=rank(),points=ownPoints(),leader=S.standings[0];const leaderPoints=standingInfo(leader).points;const distance=points!==null&&leaderPoints!==null?leaderPoints-points:null;const actions=actionItems();return `<section class="command-banner" data-week="${S.week.weekNumber||''}"><div class="command-text"><div class="eyebrow">${icon('spark')} TU VENTAJA ESTA JORNADA</div><h2>${lineup?'Un buen once es solo el principio.':'Tu próxima victoria empieza aquí.'}</h2><p>${S.roster.length?`Hemos analizado tus ${S.roster.length} jugadores. ${alertItems().length?'Hay '+alertItems().length+' señales que conviene revisar.':'Tu plantilla está lista para que tomes la siguiente decisión.'}`:'Conecta tu equipo para descubrir dónde ganar puntos.'}</p><button class="btn primary" data-tab="squad">Revisar mi alineación ${icon('arrow')}</button></div><div class="deadline"><small>PRÓXIMO CIERRE DE ONCE</small><div class="time" id="countdown">— : — : —</div><div class="units"><span>DÍAS</span><span>HORAS</span><span>MINUTOS</span></div></div></section>${rewardView()}<div class="stats-grid">${statCard('Puntos totales',num(points,0),S.demo?'Liga de demostración':'Acumulado en tu liga','trophy','',true)}${statCard('Posición en la liga',r?r+'<small> / '+(S.demo?S.league.members:S.standings.length)+'</small>':'—',distance!==null&&r>1?`<span class="green">${icon('trend')} A ${num(distance,0)} puntos del líder</span>`:r===1?'<span class="green">Lideras tu liga</span>':'Esperando clasificación','chart')}${statCard('Presupuesto disponible',S.balance!==null?num(S.balance/1e6,1)+' <small>M €</small>':'—',S.demo?'Saldo de ejemplo':'Saldo de tu equipo','wallet')}${statCard('Proyección de tu once',lineup?num(lineup.score)+' <small>pts</small>':'—',`<span class="${lineup?.incomplete?'amber':'green'}">${icon('spark')} ${lineup?.incomplete?'Faltan probabilidades':'Estimación, no garantía'}</span>`,'target')}</div><section class="panel team-value-overview" id="overview-team-value">${overviewTeamValue()}</section><div class="section-top"><h2>${icon('spark')} Tu siguiente jugada</h2><small>Basada en tus datos</small></div><div class="ai-grid">${actions.map(a=>`<article class="action-card"><div class="action-top"><span class="action-icon ${a.tone}">${icon(a.icon)}</span><span class="action-priority">${a.label}</span></div><h3>${e(a.title)}</h3><p>${e(a.text)}</p><div class="action-bottom"><span class="${a.tone==='danger'?'amber':''}">${e(a.metric)}</span><button class="link-btn" ${a.player?'data-player="'+e(a.player)+'"':'data-tab="'+a.tab+'"'}>${a.cta} ${icon('arrow')}</button></div></article>`).join('')}</div><div class="dashboard-grid"><section class="panel lineup-panel"><div class="panel-head"><div><h2>Tu once recomendado <span class="formation-tag">${lineup?.formation||'—'}</span></h2><small>Proyección · Jornada ${S.week.weekNumber||'—'}</small></div><button class="link-btn" data-tab="squad">Gestionar ${icon('arrow')}</button></div>${pitchHtml(lineup)}<div class="pitch-footer"><span>${icon('shield')} ${lineup?.incomplete?'Consulta los datos pendientes':'Optimizado según media y titularidad'}</span><span class="green">${lineup?num(lineup.score)+' pts est.':'—'}</span></div></section><section class="panel"><div class="panel-head"><h2>En tu punto de mira</h2><button class="link-btn" data-tab="alerts">Ver todo ${icon('arrow')}</button></div><div class="insight-list">${insightItems().map(i=>`<div class="insight-item"><div class="insight-symbol" style="color:${i.color}">${icon(i.icon)}</div><div><h3>${e(i.title)}</h3><p>${e(i.text)}</p><time>${e(i.source)}</time></div>${i.tag?`<span class="badge ${i.tone}">${e(i.tag)}</span>`:''}</div>`).join('')}</div></section></div><section class="panel dashboard-bottom"><div class="panel-head"><h2>${icon('arrows')} Oportunidades del mercado</h2><button class="link-btn" data-tab="market">Explorar mercado ${icon('arrow')}</button></div>${tableHtml(recommendations(S.roster,available(),S.balance??Infinity).filter(r=>r.gain>0).slice(0,4).map(r=>r.player),'mini')}</section>`}
+function statCard(label,value,foot,ico,color='',mini=false,id=''){return `<article class="stat-card"><div class="stat-top"><span>${label}</span>${icon(ico)}</div><div class="stat-value ${color}" ${id?`id="${e(id)}"`: ''}>${value}</div><div class="stat-foot">${foot}</div>${mini?'<svg class="mini-line" viewBox="0 0 65 27" fill="none"><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9" stroke="#5adea5" stroke-width="1.5"/><path d="m1 23 8-5 8 2 8-9 8 5 9-8 9 3 12-9v24H1" fill="#5adea508"/></svg>':''}</article>`}
+function overviewView(){const lineup=bestLineup();const r=rank(),points=ownPoints(),leader=S.standings[0];const leaderPoints=standingInfo(leader).points;const distance=points!==null&&leaderPoints!==null?leaderPoints-points:null;const actions=actionItems();return `<section class="command-banner" data-week="${S.week.weekNumber||''}"><div class="command-text"><div class="eyebrow">${icon('spark')} TU VENTAJA ESTA JORNADA</div><h2>${lineup?'Un buen once es solo el principio.':'Tu próxima victoria empieza aquí.'}</h2><p>${S.roster.length?`Hemos analizado tus ${S.roster.length} jugadores. ${alertItems().length?'Hay '+alertItems().length+' señales que conviene revisar.':'Tu plantilla está lista para que tomes la siguiente decisión.'}`:'Conecta tu equipo para descubrir dónde ganar puntos.'}</p><button class="btn primary" data-tab="squad">Revisar mi alineación ${icon('arrow')}</button></div><div class="deadline"><small>PRÓXIMO CIERRE DE ONCE</small><div class="time" id="countdown">— : — : —</div><div class="units"><span>DÍAS</span><span>HORAS</span><span>MINUTOS</span></div></div></section>${rewardView()}<div class="stats-grid">${statCard('Puntos totales',num(points,0),S.demo?'Liga de demostración':'Acumulado en tu liga','trophy','',true)}${statCard('Posición en la liga',r?r+'<small> / '+(S.demo?S.league.members:S.standings.length)+'</small>':'—',distance!==null&&r>1?`<span class="green">${icon('trend')} A ${num(distance,0)} puntos del líder</span>`:r===1?'<span class="green">Lideras tu liga</span>':'Esperando clasificación','chart')}${statCard('Presupuesto disponible',budgetValueHtml(S.balance),S.demo?'Saldo de ejemplo':'Saldo de tu equipo','wallet','',false,'budget-value')}${statCard('Proyección de tu once',lineup?num(lineup.score)+' <small>pts</small>':'—',`<span class="${lineup?.incomplete?'amber':'green'}">${icon('spark')} ${lineup?.incomplete?'Faltan probabilidades':'Estimación, no garantía'}</span>`,'target')}</div><section class="panel team-value-overview" id="overview-team-value">${overviewTeamValue()}</section><div class="section-top"><h2>${icon('spark')} Tu siguiente jugada</h2><small>Basada en tus datos</small></div><div class="ai-grid">${actions.map(a=>`<article class="action-card"><div class="action-top"><span class="action-icon ${a.tone}">${icon(a.icon)}</span><span class="action-priority">${a.label}</span></div><h3>${e(a.title)}</h3><p>${e(a.text)}</p><div class="action-bottom"><span class="${a.tone==='danger'?'amber':''}">${e(a.metric)}</span><button class="link-btn" ${a.player?'data-player="'+e(a.player)+'"':'data-tab="'+a.tab+'"'}>${a.cta} ${icon('arrow')}</button></div></article>`).join('')}</div><div class="dashboard-grid"><section class="panel lineup-panel"><div class="panel-head"><div><h2>Tu once recomendado <span class="formation-tag">${lineup?.formation||'—'}</span></h2><small>Proyección · Jornada ${S.week.weekNumber||'—'}</small></div><button class="link-btn" data-tab="squad">Gestionar ${icon('arrow')}</button></div>${pitchHtml(lineup)}<div class="pitch-footer"><span>${icon('shield')} ${lineup?.incomplete?'Consulta los datos pendientes':'Optimizado según media y titularidad'}</span><span class="green">${lineup?num(lineup.score)+' pts est.':'—'}</span></div></section><section class="panel"><div class="panel-head"><h2>En tu punto de mira</h2><button class="link-btn" data-tab="alerts">Ver todo ${icon('arrow')}</button></div><div class="insight-list">${insightItems().map(i=>`<div class="insight-item"><div class="insight-symbol" style="color:${i.color}">${icon(i.icon)}</div><div><h3>${e(i.title)}</h3><p>${e(i.text)}</p><time>${e(i.source)}</time></div>${i.tag?`<span class="badge ${i.tone}">${e(i.tag)}</span>`:''}</div>`).join('')}</div></section></div><section class="panel dashboard-bottom"><div class="panel-head"><h2>${icon('arrows')} Oportunidades del mercado</h2><button class="link-btn" data-tab="market">Explorar mercado ${icon('arrow')}</button></div>${tableHtml(recommendations(S.roster,available(),S.balance??Infinity).filter(r=>r.gain>0).slice(0,4).map(r=>r.player),'mini')}</section>`}
 function actionItems(){const lineup=bestLineup();const risky=S.roster.filter(p=>p.prob!==null&&!p.probabilityMismatch&&p.prob<50).sort((a,b)=>a.prob-b.prob)[0];const rec=recommendations(S.roster,available(),S.balance??Infinity).find(r=>r.gain>0);const value=available().filter(p=>p.value>0&&p.prob>=80).sort((a,b)=>b.efficiency-a.efficiency)[0];return [{icon:'shield',tone:risky?'danger':'',label:risky?'REVISA TU PLANTILLA':'ALINEACIÓN',title:risky?'Evita un posible cero':'Un once con fundamento',text:risky?`${risky.name} tiene un ${risky.prob}% de probabilidad de ser titular. Valora una alternativa.`:lineup?`${lineup.formation} es la formación con más puntos esperados para tu plantilla.`:'Revisa las posiciones disponibles antes del cierre.',metric:risky?'Atención a la titularidad':lineup?num(lineup.score)+(lineup.incomplete?' pts · parcial':' pts estimados'):'Completa tu once',cta:'Revisar once',tab:'squad'}, {icon:'trend',tone:'',label:'OPORTUNIDAD',title:rec?'Un fichaje que puede sumar':'Busca rendimiento por euro',text:rec?`${rec.player.name}${rec.replace?' por '+rec.replace.name:''}: una mejora estimada dentro de tu presupuesto.`:'Ordena el mercado por eficiencia para encontrar jugadores asequibles.',metric:rec?'+'+num(rec.gain)+' pts est.':'Radar de valor',cta:rec?'Ver jugador':'Ver mercado',player:rec?.player.id,tab:'market'}, {icon:'bolt',tone:'gold',label:'VALOR INTELIGENTE',title:value?'El precio también juega':'Prepara tu estrategia',text:value?`${value.name}: ${num(value.expected)} puntos estimados por ${formatMoney(value.value)}. Compara antes de pujar.`:'Tu asistente cruza media, forma reciente y probabilidades publicadas.',metric:value?num(value.efficiency,2)+' pts / M €':'Datos, después decisiones',cta:value?'Analizar':'Abrir asistente',player:value?.id,tab:'coach'}]}
 function insightItems(){const items=[];const risk=S.roster.filter(p=>p.prob!==null&&!p.probabilityMismatch&&p.prob<50);if(risk.length)items.push({icon:'alert',title:'No regales un puesto',text:risk.slice(0,2).map(p=>p.name+' ('+p.prob+'%)').join(' y ')+'. Revisa sus alternativas antes de cerrar el once.',source:'FútbolFantasy · J'+(risk[0].probWeek||'—'),tag:'RIESGO',tone:'warn',color:'#f5bc65'});const top=bestLineup()?.players.slice().sort((a,b)=>(b.expected??0)-(a.expected??0))[0];if(top)items.push({icon:'target',title:'Tu referencia esta jornada',text:`${top.name} tiene la mayor proyección de tu once: ${num(top.expected)} puntos estimados.`,source:'Modelo estadístico LAGUÍA',tag:'DESTACADO',tone:'good',color:'#5adea5'});items.push({icon:'clock',title:'El once se prepara antes del cierre',text:S.week.openingWeekDate?'La jornada empieza el '+dateText(S.week.openingWeekDate)+'. Comprueba tu saldo y las últimas probabilidades.':'Consulta el calendario oficial para confirmar el comienzo de la jornada.',source:'Calendario LALIGA Fantasy',tag:'J'+(S.week.weekNumber||'—'),color:'#a3adc5'});items.push({icon:'radar',title:S.watch.length?'Tu lista sigue en juego':'Ojos en el mercado',text:S.watch.length?'Sigues a '+S.watch.length+' jugadores. Encuéntralos juntos en Mercado → Seguimiento.':'Marca la estrella de cualquier jugador para seguirlo y comparar tus objetivos.',source:'Tu espacio de seguimiento · este dispositivo',color:'#ad9bc8'});return items.slice(0,4)}
 function tableHtml(players,mode='full'){const listings=mode==='league';if(!players.length)return `<div class="empty-state">${icon('search')}<h3>${mode==='mini'?'Sin mejoras claras dentro de tu saldo':'No hay jugadores con estos filtros'}</h3><p>${mode==='mini'?'Amplía el análisis en Mercado. La mejor decisión también puede ser esperar.':'Prueba con otra búsqueda, otra posición o elimina algún filtro.'}</p></div>`;return `<div class="table-scroll ${mode==='mini'?'':'full-table'}"><table class="${listings?'market-listings':''}"><thead><tr><th>JUGADOR</th><th>${listings?'PRECIO DE SALIDA':'VALOR'}</th>${mode!=='mini'?'<th>VARIACIÓN DIARIA</th>':''}<th>PUNTOS</th><th>ÚLTIMAS 5</th><th>TITULAR</th><th>PROYECCIÓN</th>${listings?'<th>MERCADO</th>':''}<th><span class="screen-reader">Seguimiento</span></th></tr></thead><tbody>${players.map(p=>`<tr><td>${playerCell(p)}</td><td>${formatMoney(marketPrice(p))}</td>${mode!=='mini'?marketTrendCell(p):''}<td><span class="points">${num(p.points,0)}</span> <small style="font-size:11px">· ${num(p.average)} med.</small></td><td>${formHtml(p)}</td><td>${probHtml(p)}</td><td class="xp">${num(p.expected)} <small style="font-size:11px">pts est.</small></td>${listings?`<td class="market-op-cell"><strong>${e(listingStatus(p))}</strong>${dated(p.expires)?`<small class="listing-status">Hasta ${e(dateOrDash(p.expires))}</small>`:''}${listingButton(p)}</td>`:''}<td><button class="watch ${S.watch.includes(p.id)?'on':''}" data-watch="${e(p.id)}" aria-label="${S.watch.includes(p.id)?'Dejar de seguir':'Seguir a'} ${e(p.name)}" aria-pressed="${S.watch.includes(p.id)}">${icon('star')}</button></td></tr>`).join('')}</tbody></table></div>`}
@@ -1302,6 +1309,8 @@ function playerOptions(selected) {
 let officialSync = null;
 let rewardCheckInFlight = null;
 let claimRewardInFlight = null;
+let rewardBalanceTimer = null;
+const rewardBalanceRetryDelays = [700,1500,3000,5000];
 
 function rewardPendingTotal(reward = S.reward) {
  const {amount, remaining} = reward ?? {};
@@ -1360,10 +1369,15 @@ function openDailyReward() {
  </section>`,true,title);
 }
 
+function rewardClaimConfirmed(before, reward) {
+ if (!before) return false;
+ const countsKnown = before.claimed!=null && reward?.claimed!=null;
+ return before.confirmed===true || (countsKnown ? reward.claimed>before.claimed : reward?.available===false);
+}
+
 function rewardBalanceChange(before, reward, balance, teamId, day) {
  if (!before || before.teamId!==teamId || before.day!==day || !Number.isFinite(before.balance) || !Number.isFinite(balance)) return null;
- const moreClaims = before.claimed!=null && reward?.claimed!=null && reward.claimed>before.claimed;
- if (!moreClaims && reward?.available!==false) return null;
+ if (balance<=before.balance || !rewardClaimConfirmed(before,reward)) return null;
  return {before:before.balance, after:balance};
 }
 
@@ -1371,14 +1385,47 @@ function recordRewardBalance() {
  const day=chartDay(new Date());
  const previous=S.rewardBalance;
  const change=rewardBalanceChange(previous,S.reward,S.balance,S.teamId,day);
- if (change) showRewardBalance(change);
+ if (!change && previous && previous.teamId===S.teamId && previous.day===day && rewardClaimConfirmed(previous,S.reward)) {
+  previous.confirmed=true;
+  scheduleRewardBalanceCheck();
+  return false;
+ }
+ if (change) {
+  clearTimeout(rewardBalanceTimer);
+  rewardBalanceTimer=null;
+  showRewardBalance(change);
+ }
  if (S.reward?.available===true && S.balance!==null && S.teamId) {
-  S.rewardBalance={day,teamId:S.teamId,claimed:S.reward.claimed,balance:S.balance};
+  let claimed=S.reward.claimed;
+  if (claimed!=null && previous?.teamId===S.teamId && previous.day===day && previous.claimed!=null) {
+   claimed=Math.max(claimed,previous.claimed+(change ? previous.confirmedClaims??0 : 0));
+  }
+  S.rewardBalance={day,teamId:S.teamId,claimed,balance:S.balance};
  } else if (change || S.reward?.available===false || previous?.day!==day) {
   S.rewardBalance=null;
  }
  return Boolean(change);
 }
+
+function scheduleRewardBalanceCheck() {
+ const league = S.league;
+ const pending = S.rewardBalance;
+ const attempt = pending?.checks ?? 0;
+ if (rewardBalanceTimer!==null || !pending?.confirmed || attempt>=rewardBalanceRetryDelays.length ||
+  !sameLeague(league) || pending.teamId!==S.teamId || document.visibilityState==='hidden') return;
+ rewardBalanceTimer = setTimeout(async()=>{
+  rewardBalanceTimer=null;
+  if (!sameLeague(league) || S.rewardBalance!==pending || pending.teamId!==S.teamId || document.visibilityState==='hidden') return;
+  if (claimRewardInFlight===league || rewardCheckInFlight?.league===league) {
+   scheduleRewardBalanceCheck();
+   return;
+  }
+  pending.checks=attempt+1;
+  await verifyDailyReward();
+ },rewardBalanceRetryDelays[attempt]);
+}
+
+const budgetValueHtml = value => Number.isFinite(value) ? num(value/1e6,2)+' <small>M €</small>' : '—';
 
 function showRewardBalance({before, after}) {
  if ($('[data-reward-dialog]')) closeOverlay();
@@ -1397,14 +1444,31 @@ function showRewardBalance({before, after}) {
   </div>
  </div>`;
  const count=$('[data-reward-count]',root);
+ const league=S.league;
+ const credit=$('#budget-value')?.closest('.stat-card');
+ const paint=value=>{
+  count.textContent=fmtFull(value);
+  const budget=$('#budget-value');
+  if (budget) budget.innerHTML=budgetValueHtml(value);
+ };
  if (rise>0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   const start=performance.now();
-  count.textContent=fmtFull(before);
+  credit?.classList.add('balance-credited');
+  paint(before);
   const step=now=>{
-   if (!count.isConnected) return;
+   if (!sameLeague(league)) {
+    credit?.classList.remove('balance-credited');
+    return;
+   }
+   if (!count.isConnected) {
+    paint(after);
+    credit?.classList.remove('balance-credited');
+    return;
+   }
    const progress=Math.min(1,(now-start)/850);
-   count.textContent=fmtFull(Math.round(before+rise*(1-(1-progress)**3)));
+   paint(Math.round(before+rise*(1-(1-progress)**3)));
    if(progress<1) window.requestAnimationFrame(step);
+   else credit?.classList.remove('balance-credited');
   };
   window.requestAnimationFrame(step);
  }
@@ -1435,6 +1499,10 @@ async function verifyDailyReward(button) {
   S.reward=status.reward;
   render();
   if (recordRewardBalance()) return;
+  if (S.rewardBalance?.confirmed) {
+   message('Recompensa confirmada. Esperando a que LaLiga actualice el saldo…');
+   return;
+  }
   const displayed=$('[data-reward-current]');
   if (displayed) displayed.textContent=fmtFull(balance);
   message(S.reward.available ? 'LaLiga aún muestra una recompensa disponible. Puedes reclamarla desde aquí.' : 'LaLiga indica que ya has reclamado la recompensa.');
@@ -1442,6 +1510,7 @@ async function verifyDailyReward(button) {
   if(sameLeague(league)) message(error.message);
  } finally {
   if(rewardCheckInFlight===check) rewardCheckInFlight=null;
+  if (sameLeague(league)) scheduleRewardBalanceCheck();
   if(button?.isConnected) button.disabled=false;
  }
 }
@@ -1456,6 +1525,10 @@ async function claimDailyReward(button) {
  const known = S.reward?.remaining;
  const unknown = known === null || known === undefined;
  const cap = unknown ? 3 : Math.max(1, Number(known) || 1);
+ const day = chartDay(new Date());
+ if (!S.rewardBalance || S.rewardBalance.teamId!==teamId || S.rewardBalance.day!==day) {
+  S.rewardBalance = Number.isFinite(S.balance) ? {day,teamId,claimed:S.reward?.claimed,balance:S.balance} : null;
+ }
  let claimed = 0, problem = '';
  if (button) button.disabled = true;
  try {
@@ -1467,6 +1540,9 @@ async function claimDailyReward(button) {
     const result = await api('/api/league', {method: 'POST', body: JSON.stringify({action: 'reward', leagueId: league.id})});
     if (!sameLeague(league) || rewardRevision !== rewardStatusRevision) return;
     claimed++;
+    if (S.rewardBalance?.teamId===teamId) {
+     Object.assign(S.rewardBalance,{confirmed:true,checks:0,confirmedClaims:(S.rewardBalance.confirmedClaims??0)+1});
+    }
     if (result?.reward) S.reward = result.reward;
     if (result?.reward?.available !== true) break;
    } catch (error) {
@@ -1492,6 +1568,11 @@ async function claimDailyReward(button) {
   render();
   // Solo se confirma el saldo si se ha consultado después del cobro.
   if (freshBalance !== null && recordRewardBalance()) return;
+  if (S.rewardBalance?.confirmed) {
+   scheduleRewardBalanceCheck();
+   toast('Recompensa recogida. LaLiga todavía está actualizando el saldo.');
+   return;
+  }
   if (claimed) {
    const done = 'Recompensa' + (claimed > 1 ? 's' : '') + ' recogida' + (claimed > 1 ? 's' : '') + '.' +
     (freshBalance !== null ? ' Saldo actual: ' + fmtFull(freshBalance) + '.' :
